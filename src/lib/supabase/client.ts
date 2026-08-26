@@ -1,0 +1,40 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient, processLock, type SupabaseClient } from '@supabase/supabase-js';
+import { AppState, Platform } from 'react-native';
+import 'react-native-url-polyfill/auto';
+
+import type { Database } from '@/lib/supabase/database.types';
+
+let client: SupabaseClient<Database> | undefined;
+let appStateListenerRegistered = false;
+
+export function getSupabaseClient(): SupabaseClient<Database> {
+  if (client) return client;
+
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !publishableKey) {
+    throw new Error('Supabase 환경 변수가 설정되지 않았습니다. .env.example을 참고하세요.');
+  }
+
+  client = createClient<Database>(url, publishableKey, {
+    auth: {
+      ...(Platform.OS !== 'web' ? { storage: AsyncStorage } : {}),
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+      flowType: 'pkce',
+      lock: processLock,
+    },
+  });
+
+  if (Platform.OS !== 'web' && !appStateListenerRegistered) {
+    appStateListenerRegistered = true;
+    AppState.addEventListener('change', (state) => {
+      if (state === 'active') client?.auth.startAutoRefresh();
+      else client?.auth.stopAutoRefresh();
+    });
+  }
+
+  return client;
+}

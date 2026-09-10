@@ -140,6 +140,15 @@ pnpm start
 
 ## 후속 작업
 
+### Migration 수정 규칙
+
+Remote Supabase에 한 번 적용된 migration 파일은 수정하지 않습니다.
+변경이 필요하면 반드시 새로운 migration 파일을 추가합니다.
+원격 적용 여부는 migration 파일명의 버전으로 추적되므로 이미 적용된 파일을 수정하면
+변경 내용이 원격에서 다시 실행되지 않아 로컬/원격 schema drift가 발생할 수 있습니다.
+Step 4.1 선언 수정은 원격 적용 전이었기 때문에 허용한 예외이며, 이후 원격 적용된 파일에는
+이 규칙을 적용합니다.
+
 ### BLOCKER BEFORE PRODUCTION
 
 - Parent PIN recovery requires parent re-authentication before production release.

@@ -132,7 +132,9 @@ export function useSelectCollectionTheme() {
 }
 
 export function useRevealCollectible() {
-  // The panel acknowledges the successful reveal before loading the next collectible.
+  // Mark stale without refetching: hook-level onSuccess runs before the panel's
+  // call-level onSuccess. An immediate refetch could replace collectible.id first,
+  // hiding the just-revealed name. "정원으로" performs the full invalidation/refetch.
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: revealCollectible,

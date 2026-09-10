@@ -149,7 +149,7 @@ for (verdict of ['invalid', 'locked', 'valid']) {
   tree = pin.render();
   assert.equal(mode, verdict === 'valid' ? 'parent' : 'child');
   if (verdict === 'invalid') assert.ok(text(tree).includes('PIN이 맞지 않아요.'));
-  if (verdict === 'locked') assert.ok(text(tree).includes('잠시 후 다시 시도해 주세요.'));
+  if (verdict === 'locked') assert.ok(text(tree).includes('5분 뒤에 다시 시도해 주세요.'));
   assert.equal(nodes(tree).find((node) => node.type === 'TextInput').props.value, '');
 }
 assert.equal(route, '/');
@@ -157,11 +157,33 @@ mode = 'child';
 let tree = pin.render();
 button(tree, '부모님').onPress();
 tree = pin.render();
+// Keep the PIN locked throughout logout confirmation; no successful verification is required.
+verdict = 'locked';
+nodes(tree)
+  .find((node) => node.type === 'TextInput')
+  .props.onChangeText('1234');
+tree = pin.render();
+button(tree, '확인').onPress();
+await new Promise((resolve) => setImmediate(resolve));
+tree = pin.render();
+assert.ok(text(tree).includes('5분 뒤에 다시 시도해 주세요.'));
+button(tree, '로그아웃').onPress();
+tree = pin.render();
+assert.ok(text(tree).includes('로그아웃할까요?'));
+assert.ok(text(tree).includes('다시 로그인해야 사용할 수 있어요.'));
+assert.equal(logoutCalls, 0);
+button(tree, '취소').onPress();
+tree = pin.render();
+assert.equal(logoutCalls, 0);
+assert.equal(mode, 'child');
+assert.ok(!text(tree).includes('로그아웃할까요?'));
+button(tree, '로그아웃').onPress();
+tree = pin.render();
 button(tree, '로그아웃').onPress();
 await new Promise((resolve) => setImmediate(resolve));
 assert.equal(logoutCalls, 1);
 console.log(
-  'PASS PIN UI: invalid/locked remain child, valid uses root, clear input, logout without PIN',
+  'PASS PIN UI: 5-minute lock message, invalid/locked remain child, valid uses root, logout requires confirmation; cancel preserves session; locked logout allowed',
 );
 
 let item = {

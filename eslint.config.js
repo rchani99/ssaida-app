@@ -3,11 +3,11 @@ const expoConfig = require('eslint-config-expo/flat');
 const prettierConfig = require('eslint-config-prettier/flat');
 
 module.exports = [
+  { ignores: ['dist/**'] },
   ...expoConfig,
   ...queryPlugin.configs['flat/recommended'],
   prettierConfig,
   {
-    ignores: ['dist/*'],
     rules: {
       'import/order': [
         'error',

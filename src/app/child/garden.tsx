@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/shared/components/placeholder-screen';
+import { GardenScreen } from '@/features/learning/screens/garden-screen';
 
-export default function GardenScreen() {
-  return <PlaceholderScreen title="정원" description="아이 모드 placeholder 화면" />;
+export default function GardenRoute() {
+  return <GardenScreen />;
 }

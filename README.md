@@ -1,7 +1,7 @@
 # 쌓이다 (Ssaida)
 
-초등학생의 공부 습관 관리를 위한 React Native/Expo 앱입니다. Step 1에는 부모 Google 인증,
-세션 복원, 최초 온보딩 진입, child/parent placeholder 라우팅이 포함되어 있습니다.
+초등학생의 공부 습관 관리를 위한 React Native/Expo 앱입니다. 부모 인증과 온보딩에 더해 학습
+등록, 오늘 계획, 공부 시작·완료, 부모 확인, 컬렉션 성장의 핵심 흐름을 Supabase에 연결합니다.
 
 ## 요구 환경
 
@@ -14,7 +14,38 @@
 OAuth는 custom scheme이 필요하므로 Expo Go에서는 테스트할 수 없습니다. Android development
 build를 사용해야 합니다.
 
-## 1. Supabase 프로젝트와 DB 준비
+## 로컬 Supabase로 실행
+
+Docker Desktop을 실행한 뒤 프로젝트 루트에서 로컬 DB를 시작하고 migration/seed를 적용합니다.
+
+```bash
+supabase start
+supabase db reset
+supabase status
+```
+
+`supabase status`에 표시되는 API URL과 publishable key를 `.env`에 넣습니다. 실행 대상에 따라
+URL의 호스트만 다음처럼 바꿉니다.
+
+- Web/iOS Simulator: `http://127.0.0.1:54321`
+- Android Emulator: `http://10.0.2.2:54321`
+- Android 실제 기기: `http://<개발 PC의 LAN IP>:54321`
+
+실제 기기는 PC와 같은 네트워크에 있어야 하고 Windows 방화벽에서 로컬 Supabase API 포트 접근을
+허용해야 합니다. 로컬 Google 로그인을 시험하려면 `supabase/config.toml`의 Google provider를
+별도로 설정해야 하며 client secret은 환경 변수로만 주입합니다. 로컬 Auth provider 설정 없이도
+`scripts/step3-integration.mjs`는 자체 테스트 계정으로 DB/RLS/RPC 회귀 검증을 수행합니다.
+
+```dotenv
+EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<supabase status의 publishable key>
+EXPO_PUBLIC_AUTH_REDIRECT_URI=ssaida://auth/callback
+```
+
+`.env`는 Git에서 제외되어 있습니다. 앱에는 publishable key만 사용하고 secret/service role key는
+넣지 않습니다.
+
+## 원격 Supabase 프로젝트와 DB 준비
 
 1. Supabase Dashboard에서 프로젝트를 생성합니다.
 2. Project Settings → API 또는 Connect 화면에서 Project URL과 Publishable key를 확인합니다.
@@ -30,7 +61,7 @@ CLI를 사용하지 않는 경우
 `supabase/migrations/202608250001_step_1_parent_auth_onboarding.sql` 내용을 Dashboard의 SQL
 Editor에서 한 번 실행합니다.
 
-## 2. Google Cloud 설정
+## Google Cloud 설정
 
 1. Google Cloud Console의 Google Auth Platform에서 프로젝트와 OAuth 동의 화면을 설정합니다.
 2. Clients → Create client에서 애플리케이션 유형을 **Web application**으로 선택합니다.
@@ -42,7 +73,7 @@ https://<PROJECT_REF>.supabase.co/auth/v1/callback
 
 4. 생성된 Web Client ID와 Client Secret을 복사합니다. 이 Secret은 앱 `.env`에 넣지 않습니다.
 
-## 3. Supabase Auth 설정
+## Supabase Auth 설정
 
 1. Authentication → Sign In / Providers → Google을 활성화합니다.
 2. Google Cloud에서 발급받은 Web Client ID와 Client Secret을 입력합니다.
@@ -55,7 +86,7 @@ ssaida://auth/callback
 Supabase Dashboard의 Google provider 화면에 표시되는 callback URL이 Google Cloud에 등록한 URL과
 정확히 같은지 다시 확인합니다.
 
-## 4. 앱 환경 변수
+## 앱 환경 변수
 
 ```powershell
 Copy-Item .env.example .env
@@ -72,7 +103,7 @@ EXPO_PUBLIC_AUTH_REDIRECT_URI=ssaida://auth/callback
 `EXPO_PUBLIC_` 값은 앱 번들에서 볼 수 있습니다. Publishable key만 사용하며 Google Client Secret,
 Supabase secret key, service role key는 앱 코드나 `.env`에 절대 넣지 않습니다.
 
-## 5. Android 실제 기기 실행
+## Android 실제 기기 실행
 
 ```bash
 pnpm install
@@ -102,10 +133,20 @@ pnpm start
 - 온보딩: `(onboarding)/onboarding`
 - 아이 모드: `/child/today`, `/child/garden`
 - 부모 모드: `/parent/home`, `/parent/records`, `/parent/settings`
+- 공부 진행: `/study/[taskId]`
 
 인증 상태는 AuthProvider, child/parent UI 모드는 Zustand store에서 별도로 관리합니다.
+서버 데이터는 TanStack Query로 조회·무효화하며, 계획과 task 상태 변경은 공개 RPC를 사용합니다.
 
-## 품질 검사
+## 후속 작업
+
+- 부모 PIN은 같은 로그인 세션의 UI 모드 전환 확인입니다. Supabase Auth/RLS 권한을 대체하지 않습니다.
+- 아이 헤더의 부모님 → PIN 확인 → 부모 홈, 아이 화면으로 복귀한 뒤에는 다시 PIN이 필요합니다.
+- 로컬 seed.sql의 DEV 수집물은 개발/통합 테스트 전용입니다. 출시 전 실제 catalog를 별도 data migration으로 준비해야 합니다.
+- PARTIAL/RETRY 상세 화면과 부모 확인 항목별 선택은 다음 예외 처리 단계에서 구현합니다.
+- 자정/AppState 날짜 전환과 성장 gauge의 실제 기기 확인은 후속 lifecycle/기기 검증 단계로 남깁니다.
+
+## 품질 검사 명령
 
 ```bash
 pnpm typecheck

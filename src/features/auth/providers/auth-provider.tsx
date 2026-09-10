@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
 import { AuthContext } from '@/features/auth/hooks/use-auth';
+import { queryClient } from '@/lib/query-client';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { useAppModeStore } from '@/store/app-mode.store';
 
 import type { ParentProfile } from '@/features/auth/types/auth.types';
 import type { Session } from '@supabase/supabase-js';
@@ -11,6 +13,7 @@ type ClientState =
   | { client: null; errorMessage: string };
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const activeUserId = useRef<string | null>(null);
   const [clientState] = useState<ClientState>(() => {
     try {
       return { client: getSupabaseClient(), errorMessage: null };
@@ -58,8 +61,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!clientState.client) return;
     let mounted = true;
+    const resetForUser = (nextSession: Session | null) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      if (activeUserId.current !== nextUserId || nextUserId === null) {
+        useAppModeStore.getState().setMode('child');
+        queryClient.clear();
+        activeUserId.current = nextUserId;
+      }
+    };
     const { data: listener } = clientState.client.auth.onAuthStateChange((_event, nextSession) => {
       if (mounted) {
+        resetForUser(nextSession);
         setSession(nextSession);
         setSessionLoading(false);
         setProfileLoading(nextSession !== null);
@@ -68,6 +80,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
     void clientState.client.auth.getSession().then(({ data, error }) => {
       if (mounted) {
+        resetForUser(error ? null : data.session);
         setSession(error ? null : data.session);
         setSessionLoading(false);
         setProfileLoading(!error && data.session !== null);

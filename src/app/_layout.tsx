@@ -6,6 +6,7 @@ import { colors } from '@/design-system/tokens';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { LoadingScreen } from '@/features/auth/screens/loading-screen';
 import { AppProviders } from '@/providers/app-providers';
+import { useAppModeStore } from '@/store/app-mode.store';
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -22,6 +23,7 @@ const navigationTheme = {
 void SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
+  const mode = useAppModeStore((state) => state.mode);
   const { isLoading, isAuthenticated, profile } = useAuth();
   const needsOnboarding = isAuthenticated && profile?.onboarding_completed !== true;
 
@@ -46,7 +48,10 @@ function RootNavigator() {
       <Stack.Protected guard={isAuthenticated && !needsOnboarding}>
         <Stack.Screen name="index" />
         <Stack.Screen name="child" />
-        <Stack.Screen name="parent" />
+        <Stack.Protected guard={mode === 'parent'}>
+          <Stack.Screen name="parent" />
+        </Stack.Protected>
+        <Stack.Screen name="study/[taskId]" />
       </Stack.Protected>
     </Stack>
   );

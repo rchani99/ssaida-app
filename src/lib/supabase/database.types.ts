@@ -493,6 +493,7 @@ export type Database = {
         Args: { target_daily_task_id: string };
         Returns: undefined;
       };
+      verify_parent_pin: { Args: { parent_pin: string }; Returns: boolean };
     };
     Enums: {
       [_ in never]: never;

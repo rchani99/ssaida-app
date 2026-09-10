@@ -27,6 +27,17 @@ export type CreateStudyItemInput = {
 
 export type ConfirmationInput = {
   dailyTaskId: string;
-  status: 'PARENT_CONFIRMED';
+  status: 'PARENT_CONFIRMED' | 'PARTIAL' | 'RETRY';
   actualEndPage: number | null;
+};
+
+export type ManualTaskInput = {
+  childId: string;
+  planDate: string;
+  itemType: 'WORKBOOK' | 'ACTIVITY';
+  name: string;
+  subject: CreateStudyItemInput['subject'];
+  minutes: number;
+  startPage: number | null;
+  endPage: number | null;
 };

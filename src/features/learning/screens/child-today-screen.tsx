@@ -11,6 +11,7 @@ import {
   useEnsureDailyPlan,
   useStartDailyTask,
 } from '@/features/learning/hooks/use-learning';
+import { prioritizeTodayTasks } from '@/features/learning/utils/exception-tasks';
 import { mergeVisibleTasks } from '@/features/learning/utils/visible-tasks';
 import { ScreenMessage } from '@/shared/components/screen-message';
 import { toLocalDateString } from '@/shared/utils/date';
@@ -76,7 +77,10 @@ export function ChildTodayScreen() {
     );
   }
 
-  const tasks = mergeVisibleTasks<DailyTask>(continuingQuery.data ?? [], tasksQuery.data ?? []);
+  const tasks = mergeVisibleTasks<DailyTask>(
+    continuingQuery.data ?? [],
+    prioritizeTodayTasks(tasksQuery.data ?? []),
+  );
   const totalMinutes = tasks.reduce((sum, task) => sum + task.planned_minutes, 0);
 
   return (
@@ -144,7 +148,7 @@ function TaskCard({ task, onOpen }: { task: DailyTask; onOpen: () => void }) {
               : task.status === 'IN_PROGRESS'
                 ? '공부하는 중이에요'
                 : task.status === 'RETRY'
-                  ? '다시 이어서 해볼까요?'
+                  ? '다시 해볼까요?'
                   : '시작할 준비가 됐어요'}
         </Text>
       </View>
@@ -159,9 +163,11 @@ function TaskCard({ task, onOpen }: { task: DailyTask; onOpen: () => void }) {
             <ActivityIndicator color={colors.card} />
           ) : (
             <Text style={styles.taskButtonText}>
-              {task.status === 'IN_PROGRESS' || task.status === 'RETRY'
-                ? '공부 계속하기'
-                : '공부 시작'}
+              {task.status === 'RETRY'
+                ? '다시 하기'
+                : task.status === 'IN_PROGRESS'
+                  ? '공부 계속하기'
+                  : '공부 시작'}
             </Text>
           )}
         </Pressable>

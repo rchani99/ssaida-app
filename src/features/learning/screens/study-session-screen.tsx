@@ -29,6 +29,14 @@ export function StudySessionScreen() {
   }
 
   const task = taskQuery.data;
+  if (task.isSuperseded)
+    return (
+      <ScreenMessage
+        message="다른 날짜로 옮긴 공부예요. 오늘 공부에서 확인해 주세요."
+        actionLabel="오늘 공부로"
+        onAction={() => router.replace('/child/today')}
+      />
+    );
   const isCompleted = ['CHILD_COMPLETED', 'PARENT_CONFIRMED', 'PARTIAL', 'SKIPPED'].includes(
     task.status,
   );
@@ -78,7 +86,9 @@ export function StudySessionScreen() {
             {startTask.isPending || completeTask.isPending ? (
               <ActivityIndicator color={colors.card} />
             ) : (
-              <Text style={styles.primaryButtonText}>{canStart ? '공부 시작' : '완료'}</Text>
+              <Text style={styles.primaryButtonText}>
+                {task.status === 'RETRY' ? '다시 하기' : canStart ? '공부 시작' : '완료'}
+              </Text>
             )}
           </Pressable>
         )}

@@ -11,6 +11,27 @@ const native = new Proxy(
   { get: (object, key) => object[key] ?? key },
 );
 const jsx = (type, props) => ({ type, props });
+function loadPlain(path, imports = {}) {
+  const output = ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', output)(
+    (id) => {
+      if (id in imports) return imports[id];
+      throw new Error(`Unexpected plain import: ${id}`);
+    },
+    module,
+    module.exports,
+  );
+  return module.exports;
+}
+const exceptionTasks = loadPlain('src/features/learning/utils/exception-tasks.ts');
+const controls = loadPlain('src/features/learning/components/learning-controls.tsx', {
+  'react/jsx-runtime': { jsx, jsxs: jsx },
+  'react-native': native,
+  '@/design-system/tokens': { colors: token, radius: token, sizing: token, spacing: token },
+});
 function harness(path, name, mocks) {
   const slots = [];
   let cursor = 0;
@@ -52,6 +73,12 @@ function harness(path, name, mocks) {
       Stack: { Screen: 'Screen' },
     },
     '@/shared/components/screen-message': { ScreenMessage: 'ScreenMessage' },
+    '@/features/learning/utils/exception-tasks': exceptionTasks,
+    '@/features/learning/components/learning-controls': controls,
+    '@/features/learning/components/parent-confirmation-panel': {
+      ParentConfirmationPanel: 'ParentConfirmationPanel',
+    },
+    '@/features/learning/components/manual-tasks-panel': { ManualTasksPanel: 'ManualTasksPanel' },
   };
   const output = ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
@@ -84,12 +111,16 @@ function harness(path, name, mocks) {
 function nodes(tree) {
   if (!tree || typeof tree !== 'object') return [];
   if (Array.isArray(tree)) return tree.flatMap(nodes);
+  if (Object.values(controls).includes(tree.type) && typeof tree.type === 'function')
+    return nodes(tree.type(tree.props));
   return [tree, ...nodes(tree.props?.children)];
 }
 function text(tree) {
   if (typeof tree === 'string' || typeof tree === 'number') return String(tree);
   if (!tree) return '';
   if (Array.isArray(tree)) return tree.map(text).join('');
+  if (Object.values(controls).includes(tree.type) && typeof tree.type === 'function')
+    return text(tree.type(tree.props));
   return text(tree.props?.children);
 }
 function button(tree, label) {
@@ -260,56 +291,85 @@ assert.equal(calls, 2);
 console.log('PASS ensure: initial 1, one retry adds 1, rerenders add 0');
 
 let confirmCalls = 0;
-const parent = harness('src/features/learning/screens/parent-home-screen.tsx', 'ParentHomeScreen', {
-  'expo-router': {
-    useRouter: () => ({
-      replace: (value) => {
-        route = value;
-      },
-    }),
-  },
-  [hooks]: {
-    useCurrentChild: () => ({ data: { id: 'child', name: 'test' } }),
-    useStudyItems: () => ({ data: [{ id: 'item', workbook_last_page: 100 }] }),
-    usePendingConfirmations: () => ({
-      data: [
-        {
-          id: 'task',
-          study_item_id: 'item',
-          item_type: 'WORKBOOK',
-          planned_start_page: 1,
-          planned_end_page: 5,
+const parent = harness(
+  'src/features/learning/components/parent-confirmation-panel.tsx',
+  'ParentConfirmationPanel',
+  {
+    'expo-router': {
+      useRouter: () => ({
+        replace: (value) => {
+          route = value;
         },
-      ],
-    }),
-    useConfirmDailyTasks: () => ({
-      ...mutation,
-      mutate: () => {
-        confirmCalls++;
+      }),
+    },
+    [hooks]: {
+      useReviewTasks: () => ({ data: [] }),
+      useCurrentChild: () => ({ data: { id: 'child', name: 'test' } }),
+      useStudyItems: () => ({ data: [{ id: 'item', workbook_last_page: 100 }] }),
+      usePendingConfirmations: () => ({
+        data: [
+          {
+            id: 'task',
+            study_item_id: 'item',
+            item_type: 'WORKBOOK',
+            planned_start_page: 1,
+            planned_end_page: 5,
+            daily_plans: { plan_date: '2026-09-10' },
+          },
+        ],
+      }),
+      useConfirmDailyTasks: () => ({
+        ...mutation,
+        mutate: () => {
+          confirmCalls++;
+        },
+      }),
+    },
+    '@/store/app-mode.store': {
+      useAppModeStore: () => (value) => {
+        mode = value;
       },
-    }),
-  },
-  '@/store/app-mode.store': {
-    useAppModeStore: () => (value) => {
-      mode = value;
     },
   },
-});
-tree = parent.render();
+);
+tree = parent.render({ childId: 'child' });
 nodes(tree)
   .find((node) => node.type === 'TextInput')
   .props.onChangeText('101');
-tree = parent.render();
-button(tree, '모두 확인했어요').onPress();
-tree = parent.render();
+tree = parent.render({ childId: 'child' });
+button(tree, '선택한 공부 확인하기').onPress();
+tree = parent.render({ childId: 'child' });
 assert.equal(confirmCalls, 0);
 assert.ok(text(tree).includes('마지막 쪽을 넘을 수 없어요.'));
 nodes(tree)
   .find((node) => node.type === 'TextInput')
   .props.onChangeText('100');
-tree = parent.render();
-button(tree, '모두 확인했어요').onPress();
+tree = parent.render({ childId: 'child' });
+button(tree, '선택한 공부 확인하기').onPress();
 assert.equal(confirmCalls, 1);
+const parentHome = harness(
+  'src/features/learning/screens/parent-home-screen.tsx',
+  'ParentHomeScreen',
+  {
+    'expo-router': {
+      useRouter: () => ({
+        replace: (value) => {
+          route = value;
+        },
+      }),
+    },
+    [hooks]: {
+      useCurrentChild: () => ({ data: { id: 'child', name: 'test' } }),
+      useStudyItems: () => ({ data: [] }),
+    },
+    '@/store/app-mode.store': {
+      useAppModeStore: () => (value) => {
+        mode = value;
+      },
+    },
+  },
+);
+tree = parentHome.render();
 button(tree, '아이 화면').onPress();
 assert.equal(mode, 'child');
 assert.equal(route, '/');
@@ -341,5 +401,140 @@ for (status of ['CHILD_COMPLETED', 'PARENT_CONFIRMED', 'PARTIAL', 'SKIPPED']) {
   assert.ok(!text(tree).includes(status));
 }
 status = 'RETRY';
-assert.equal(button(session.render(), '공부 시작').disabled, false);
+assert.equal(button(session.render(), '다시 하기').disabled, false);
+// Step 5 polish: exercise actual shared inputs and manual-panel handlers.
+let entered = '';
+for (const numeric of [true, false]) {
+  const field = controls.LearningField({
+    label: 'input',
+    value: '',
+    numeric,
+    onChangeText: (value) => {
+      entered = value;
+    },
+  });
+  nodes(field)
+    .find((node) => node.type === 'TextInput')
+    .props.onChangeText('1a 2.3쪽');
+  assert.equal(entered, numeric ? '123' : '1a 2.3쪽');
+}
+let savedManual;
+let moveCalls = 0;
+let skipCalls = 0;
+const pastTasks = ['first', 'last'].map((id) => ({
+  id,
+  name_snapshot: id,
+  status: 'IN_PROGRESS',
+  item_type: 'ACTIVITY',
+  planned_minutes: 20,
+  daily_plans: { plan_date: '2026-09-01' },
+}));
+const manual = harness(
+  'src/features/learning/components/manual-tasks-panel.tsx',
+  'ManualTasksPanel',
+  {
+    '@/shared/utils/date': { toLocalDateString: () => '2026-09-10' },
+    [hooks]: {
+      useDailyPlan: () => ({ data: { id: 'plan', target_minutes_snapshot: 60 } }),
+      useDailyTasks: () => ({ data: [] }),
+      useUnresolvedManualTasks: () => ({ data: pastTasks }),
+      useAddManualDailyTask: () => ({
+        ...mutation,
+        mutate: (input, callbacks) => {
+          savedManual = input;
+          callbacks.onSuccess();
+          callbacks.onSettled();
+        },
+      }),
+      useRescheduleManualTask: () => ({
+        ...mutation,
+        mutate: (_input, callbacks) => {
+          moveCalls++;
+          callbacks.onSuccess();
+          callbacks.onSettled();
+        },
+      }),
+      useSkipManualTask: () => ({
+        ...mutation,
+        mutate: (_input, callbacks) => {
+          skipCalls++;
+          callbacks.onSuccess();
+          callbacks.onSettled();
+        },
+      }),
+    },
+  },
+);
+const manualTree = () => manual.render({ childId: 'child' });
+const inputField = (label) =>
+  nodes(manualTree()).find(
+    (node) => node.type === 'TextInput' && node.props.accessibilityLabel === label,
+  ).props;
+const chooseType = (label) =>
+  nodes(manualTree())
+    .find((node) => node.props?.accessibilityLabel === label)
+    .props.onPress();
+button(manualTree(), '+ 오늘 할 일 추가').onPress();
+inputField('오늘 할 일 시작 쪽').onChangeText('12');
+inputField('오늘 할 일 마지막 쪽').onChangeText('19');
+chooseType('오늘 할 일 활동');
+assert.ok(
+  !nodes(manualTree()).some((node) => node.props?.accessibilityLabel === '오늘 할 일 시작 쪽'),
+);
+chooseType('오늘 할 일 문제집');
+assert.equal(inputField('오늘 할 일 시작 쪽').value, '1');
+assert.equal(inputField('오늘 할 일 마지막 쪽').value, '5');
+inputField('오늘 할 일 이름').onChangeText('숙제');
+inputField('오늘 할 일 예상시간 (분)').onChangeText('40');
+inputField('오늘 할 일 시작 쪽').onChangeText('11');
+inputField('오늘 할 일 마지막 쪽').onChangeText('15');
+chooseType('오늘 할 일 과목 수학');
+button(manualTree(), '오늘 할 일 저장').onPress();
+assert.equal(savedManual.startPage, 11);
+button(manualTree(), '+ 오늘 할 일 추가').onPress();
+assert.equal(inputField('오늘 할 일 이름').value, '');
+assert.equal(inputField('오늘 할 일 예상시간 (분)').value, '20');
+assert.equal(inputField('오늘 할 일 시작 쪽').value, '1');
+assert.equal(inputField('오늘 할 일 마지막 쪽').value, '5');
+assert.ok(
+  nodes(manualTree()).find(
+    (node) => node.props?.accessibilityLabel === '오늘 할 일 과목 선택 안 함',
+  ).props.accessibilityState.selected,
+);
+chooseType('오늘 할 일 활동');
+inputField('오늘 할 일 이름').onChangeText('독서');
+button(manualTree(), '오늘 할 일 저장').onPress();
+assert.equal(savedManual.startPage, null);
+assert.equal(savedManual.endPage, null);
+button(manualTree(), '+ 오늘 할 일 추가').onPress();
+assert.equal(inputField('오늘 할 일 시작 쪽').value, '1');
+button(manualTree(), '지난 공부 2개 정리하기').onPress();
+for (const [label, confirmLabel] of [
+  ['오늘에 추가', '오늘로 옮기기 확인'],
+  ['이번에는 넘기기', '넘기기 확인'],
+]) {
+  button(manualTree(), `first ${label}`).onPress();
+  tree = manualTree();
+  const firstCard = nodes(tree).find(
+    (node) =>
+      node.type === 'View' &&
+      Array.isArray(node.props.children) &&
+      text(node.props.children[0]) === 'first' &&
+      text(node).includes('first 오늘에 추가'),
+  );
+  assert.ok(firstCard, 'target task card');
+  assert.ok(text(firstCard).includes('진행 중인 공부예요.'));
+  assert.ok(nodes(firstCard).some((node) => node.props?.accessibilityViewIsModal));
+  assert.ok(button(firstCard, confirmLabel));
+  assert.equal(moveCalls + skipCalls, label === '오늘에 추가' ? 0 : 1);
+  button(firstCard, '취소').onPress();
+  assert.ok(!text(manualTree()).includes(confirmLabel));
+  button(manualTree(), `first ${label}`).onPress();
+  button(manualTree(), confirmLabel).onPress();
+}
+assert.equal(moveCalls, 1);
+assert.equal(skipCalls, 1);
+console.log(
+  'PASS Step 5 polish: numeric sanitization, type/reset fields, task-local confirmation and cancel',
+);
 console.log('PASS finalized CTA: all four terminal states hidden; RETRY enabled');

@@ -1,3 +1,4 @@
+import { isOneTime, unresolvedManualTasks } from '@/features/learning/utils/exception-tasks';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 import type {
@@ -7,6 +8,7 @@ import type {
   DailyPlan,
   DailyTask,
   DailyTaskWithPlan,
+  ManualTaskInput,
 } from '@/features/learning/types/learning.types';
 
 function throwLearningError(context: string, error: unknown): asserts error is null {
@@ -80,7 +82,7 @@ export async function fetchDailyTasks(dailyPlanId: string): Promise<DailyTask[]>
     .eq('daily_plan_id', dailyPlanId)
     .order('sort_order');
   throwLearningError('fetchDailyTasks', error);
-  return data;
+  return excludeRescheduledSources(data);
 }
 
 export async function fetchContinuingTasks(
@@ -95,7 +97,7 @@ export async function fetchContinuingTasks(
     .in('status', ['IN_PROGRESS', 'RETRY'])
     .order('created_at');
   throwLearningError('fetchContinuingTasks', error);
-  return data as DailyTaskWithPlan[];
+  return excludeRescheduledSources(data as DailyTaskWithPlan[]);
 }
 
 export async function fetchPendingConfirmations(childId: string): Promise<DailyTaskWithPlan[]> {
@@ -104,9 +106,93 @@ export async function fetchPendingConfirmations(childId: string): Promise<DailyT
     .select('*,daily_plans!inner(child_id,plan_date)')
     .eq('daily_plans.child_id', childId)
     .eq('status', 'CHILD_COMPLETED')
+    .is('parent_verified_at', null)
     .order('child_completed_at');
   throwLearningError('fetchPendingConfirmations', error);
   return data as DailyTaskWithPlan[];
+}
+
+// A successor can already be finalized or on another date; never filter it by status/date.
+async function excludeRescheduledSources<T extends DailyTask>(tasks: T[]): Promise<T[]> {
+  const ids = tasks.filter(isOneTime).map((task) => task.id);
+  const superseded = new Set<string>();
+  for (let offset = 0; offset < ids.length; offset += 200) {
+    const { data, error } = await getSupabaseClient()
+      .from('daily_tasks')
+      .select('source_daily_task_id')
+      .in('source_daily_task_id', ids.slice(offset, offset + 200));
+    throwLearningError('rescheduleSuccessors', error);
+    data.forEach((row) => {
+      if (row.source_daily_task_id) superseded.add(row.source_daily_task_id);
+    });
+  }
+  return tasks.filter((task) => !superseded.has(task.id));
+}
+
+export async function fetchReviewTasks(childId: string): Promise<DailyTaskWithPlan[]> {
+  const result: DailyTaskWithPlan[] = [];
+  // Paginate history so an older chain ancestor cannot reappear due to the API row limit.
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await getSupabaseClient()
+      .from('daily_tasks')
+      .select('*,daily_plans!inner(child_id,plan_date)')
+      .eq('daily_plans.child_id', childId)
+      .order('id')
+      .range(offset, offset + 499);
+    throwLearningError('fetchReviewTasks', error);
+    result.push(...(data as DailyTaskWithPlan[]));
+    if (data.length < 500) return result;
+  }
+}
+
+export async function fetchUnresolvedManualTasks(childId: string, today: string) {
+  return unresolvedManualTasks(await fetchReviewTasks(childId), today);
+}
+
+export async function addManualDailyTask(input: ManualTaskInput) {
+  // Generated RPC Args cannot express nullable SQL input parameters. Narrow the cast
+  // here only; SQL requires NULL pages for ACTIVITY and allows NULL subject.
+  const args = {
+    target_child_id: input.childId,
+    target_plan_date: input.planDate,
+    manual_item_type: input.itemType,
+    manual_name: input.name.trim(),
+    manual_subject: input.subject,
+    manual_planned_start_page: input.startPage,
+    manual_planned_end_page: input.endPage,
+    manual_planned_minutes: input.minutes,
+  };
+  const { data, error } = await getSupabaseClient().rpc(
+    'add_manual_daily_task',
+    args as import('@/lib/supabase/database.types').Database['public']['Functions']['add_manual_daily_task']['Args'],
+  );
+  throwLearningError('addManualDailyTask', error);
+  return data;
+}
+
+export async function rescheduleManualTask(input: { taskId: string; date: string }) {
+  const { data, error } = await getSupabaseClient().rpc('reschedule_manual_task', {
+    source_daily_task_id: input.taskId,
+    target_plan_date: input.date,
+  });
+  if (
+    error?.code === '22023' &&
+    error.message === 'This task has already been rescheduled to another date'
+  ) {
+    throw new Error('이미 다른 날짜로 옮긴 공부예요.');
+  }
+  if (error) {
+    if (__DEV__) console.error('[learning] rescheduleManualTask', error);
+    throw new Error('공부를 옮기지 못했어요. 목록을 다시 확인해 주세요.');
+  }
+  return data;
+}
+
+export async function skipManualTask(taskId: string) {
+  const { error } = await getSupabaseClient().rpc('skip_manual_task', {
+    target_daily_task_id: taskId,
+  });
+  throwLearningError('skipManualTask', error);
 }
 
 export async function fetchDailyTask(taskId: string) {
@@ -116,7 +202,8 @@ export async function fetchDailyTask(taskId: string) {
     .eq('id', taskId)
     .single();
   throwLearningError('fetchDailyTask', error);
-  return data;
+  const visible = await excludeRescheduledSources([data]);
+  return { ...data, isSuperseded: visible.length === 0 };
 }
 
 export async function startDailyTask(taskId: string) {

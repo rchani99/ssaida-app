@@ -13,11 +13,11 @@ import {
 } from 'react-native';
 
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
+import { ManualTasksPanel } from '@/features/learning/components/manual-tasks-panel';
+import { ParentConfirmationPanel } from '@/features/learning/components/parent-confirmation-panel';
 import {
-  useConfirmDailyTasks,
   useCreateStudyItem,
   useCurrentChild,
-  usePendingConfirmations,
   useStudyItems,
 } from '@/features/learning/hooks/use-learning';
 import { ScreenMessage } from '@/shared/components/screen-message';
@@ -43,11 +43,6 @@ export function ParentHomeScreen() {
   const childQuery = useCurrentChild();
   const childId = childQuery.data?.id;
   const studyItemsQuery = useStudyItems(childId);
-  const pendingQuery = usePendingConfirmations(childId);
-  const confirmTasks = useConfirmDailyTasks();
-  const [actualPages, setActualPages] = useState<Record<string, string>>({});
-  const [confirmError, setConfirmError] = useState<string | null>(null);
-
   if (childQuery.isLoading) return <ScreenMessage loading message="가족 정보를 불러오고 있어요." />;
   if (childQuery.isError || !childQuery.data) {
     return (
@@ -58,38 +53,6 @@ export function ParentHomeScreen() {
       />
     );
   }
-
-  const pending = pendingQuery.data ?? [];
-  const handleConfirmAll = () => {
-    setConfirmError(null);
-    try {
-      const confirmations = pending.map((task) => {
-        if (task.item_type === 'ACTIVITY') {
-          return { dailyTaskId: task.id, status: 'PARENT_CONFIRMED' as const, actualEndPage: null };
-        }
-        const value = Number(actualPages[task.id] ?? task.planned_end_page);
-        if (!Number.isInteger(value) || value < (task.planned_end_page ?? 1)) {
-          throw new Error('문제집의 실제 완료 페이지를 확인해 주세요.');
-        }
-        if (task.study_item_id !== null) {
-          const item = studyItemsQuery.data?.find((item) => item.id === task.study_item_id);
-          if (!item || item.workbook_last_page === null) {
-            throw new Error('문제집 정보를 불러온 뒤 다시 확인해 주세요.');
-          }
-          if (value > item.workbook_last_page) {
-            throw new Error('마지막 쪽을 넘을 수 없어요.');
-          }
-        }
-        return { dailyTaskId: task.id, status: 'PARENT_CONFIRMED' as const, actualEndPage: value };
-      });
-
-      confirmTasks.mutate(confirmations, {
-        onError: () => setConfirmError('완료 내용을 저장하지 못했어요. 다시 확인해 주세요.'),
-      });
-    } catch (error) {
-      setConfirmError(error instanceof Error ? error.message : '완료 페이지를 확인해 주세요.');
-    }
-  };
 
   return (
     <KeyboardAvoidingView
@@ -146,60 +109,8 @@ export function ParentHomeScreen() {
           )}
         </Section>
 
-        <Section title="부모님 확인">
-          {pendingQuery.isLoading ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : pendingQuery.isError ? (
-            <Text style={styles.error}>확인할 공부를 불러오지 못했어요.</Text>
-          ) : pending.length === 0 ? (
-            <Text style={styles.empty}>지금 확인할 공부가 없어요.</Text>
-          ) : (
-            <>
-              {pending.map((task) => (
-                <View key={task.id} style={styles.confirmRow}>
-                  <View style={styles.rowCopy}>
-                    <Text style={styles.rowTitle}>{task.name_snapshot}</Text>
-                    <Text style={styles.rowDetail}>
-                      {task.item_type === 'WORKBOOK'
-                        ? `계획 ${task.planned_start_page}쪽 ~ ${task.planned_end_page}쪽`
-                        : `약 ${task.planned_minutes}분 활동`}
-                    </Text>
-                  </View>
-                  {task.item_type === 'WORKBOOK' && (
-                    <View style={styles.pageField}>
-                      <TextInput
-                        accessibilityLabel={`${task.name_snapshot} 실제 완료 페이지`}
-                        keyboardType="number-pad"
-                        onChangeText={(value) =>
-                          setActualPages((current) => ({
-                            ...current,
-                            [task.id]: value.replace(/\D/g, ''),
-                          }))
-                        }
-                        style={styles.pageInput}
-                        value={actualPages[task.id] ?? String(task.planned_end_page)}
-                      />
-                      <Text style={styles.pageSuffix}>쪽까지</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-              <Pressable
-                accessibilityRole="button"
-                disabled={confirmTasks.isPending}
-                onPress={handleConfirmAll}
-                style={styles.primaryButton}
-              >
-                {confirmTasks.isPending ? (
-                  <ActivityIndicator color={colors.card} />
-                ) : (
-                  <Text style={styles.primaryButtonText}>모두 확인했어요</Text>
-                )}
-              </Pressable>
-            </>
-          )}
-          {confirmError && <Text style={styles.error}>{confirmError}</Text>}
-        </Section>
+        <ParentConfirmationPanel childId={childQuery.data.id} />
+        <ManualTasksPanel childId={childQuery.data.id} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -508,25 +419,6 @@ const styles = StyleSheet.create({
   rowTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '700' },
   rowDetail: { color: colors.textSecondary, fontSize: 13 },
   badge: { color: colors.primaryDark, fontSize: 12, fontWeight: '700' },
-  confirmRow: {
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  pageField: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  pageInput: {
-    width: 84,
-    height: 44,
-    paddingHorizontal: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.button,
-    color: colors.textPrimary,
-    backgroundColor: colors.background,
-    textAlign: 'center',
-  },
-  pageSuffix: { color: colors.textSecondary, fontSize: 14 },
   empty: { color: colors.textSecondary, fontSize: 14 },
   success: { color: colors.primaryDark, fontSize: 13 },
   error: { color: colors.error, fontSize: 13 },

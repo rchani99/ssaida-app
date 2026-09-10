@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  addManualDailyTask,
+  fetchReviewTasks,
+  fetchUnresolvedManualTasks,
+  rescheduleManualTask,
+  skipManualTask,
   completeDailyTask,
   confirmDailyTasks,
   createStudyItem,
@@ -21,6 +26,8 @@ import {
 export const learningKeys = {
   all: ['learning'] as const,
   child: ['learning', 'child'] as const,
+  review: (childId: string) => ['learning', 'review', childId] as const,
+  unresolved: (childId: string, date: string) => ['learning', 'unresolved', childId, date] as const,
   studyItems: (childId: string) => ['learning', 'study-items', childId] as const,
   plan: (childId: string, date: string) => ['learning', 'plan', childId, date] as const,
   tasks: (planId: string) => ['learning', 'tasks', planId] as const,
@@ -35,6 +42,31 @@ export const learningKeys = {
 function useInvalidateLearning() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: learningKeys.all });
+}
+
+export function useReviewTasks(childId: string) {
+  return useQuery({
+    queryKey: learningKeys.review(childId),
+    queryFn: () => fetchReviewTasks(childId),
+  });
+}
+export function useUnresolvedManualTasks(childId: string, date: string) {
+  return useQuery({
+    queryKey: learningKeys.unresolved(childId, date),
+    queryFn: () => fetchUnresolvedManualTasks(childId, date),
+  });
+}
+export function useAddManualDailyTask() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({ mutationFn: addManualDailyTask, onSuccess: invalidate });
+}
+export function useRescheduleManualTask() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({ mutationFn: rescheduleManualTask, onSuccess: invalidate });
+}
+export function useSkipManualTask() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({ mutationFn: skipManualTask, onSuccess: invalidate });
 }
 
 export function useCurrentChild() {

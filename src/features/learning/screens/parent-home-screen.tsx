@@ -106,7 +106,7 @@ export function ParentHomeScreen() {
             accessibilityRole="button"
             onPress={() => {
               setMode('child');
-              router.replace('/child/today');
+              router.replace('/');
             }}
             style={styles.secondaryButton}
           >

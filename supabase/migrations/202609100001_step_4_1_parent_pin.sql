@@ -1,7 +1,7 @@
 begin;
 
 -- UI mode gate within the parent's authenticated session; not a replacement for RLS.
-create function public.verify_parent_pin(parent_pin text)
+create or replace function public.verify_parent_pin(parent_pin text)
 returns boolean
 language plpgsql
 security definer

@@ -39,6 +39,8 @@ try {
   const b = await user('5678');
   for (const value of [null, '', '123', '12345', 'abcd', '１２３４', '9999', '5678']) {
     assert.equal(await checked(a.rpc('verify_parent_pin', { parent_pin: value })), false);
+    // Each malformed-input case is independent; Step 4.2 rate-limit tests cover consecutive failures.
+    assert.equal(await checked(a.rpc('verify_parent_pin', { parent_pin: '1234' })), true);
   }
   assert.equal(await checked(a.rpc('verify_parent_pin', { parent_pin: '1234' })), true);
   assert.equal(await checked(b.rpc('verify_parent_pin', { parent_pin: '1234' })), false);

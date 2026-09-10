@@ -140,6 +140,25 @@ pnpm start
 
 ## 후속 작업
 
+### BLOCKER BEFORE PRODUCTION
+
+- Parent PIN recovery requires parent re-authentication before production release.
+  Google 재인증 등 부모 재인증을 포함한 복구가 필요합니다. 아이/부모가 같은 Auth 세션을
+  사용하므로 단순 authenticated `reset_parent_pin` RPC는 제공하지 않습니다.
+- production collectible catalog data migration required
+- all six themes require active catalog data
+- without it select_collection_theme fails
+  `supabase/seed.sql`은 local/dev 전용이며 remote `db push`로 적용되지 않습니다.
+  DEV_* 항목을 production으로 옮기지 않고, 확정 콘텐츠로 별도 data migration을 준비합니다.
+
+### PIN 및 후속 UI
+
+- 서버가 credential row를 잠가 실패 횟수를 직렬화합니다. 연속 5회 실패 시 5분 잠금,
+  만료 후 새 시도 묶음을 시작하며 성공 시 카운터와 잠금을 초기화합니다.
+- `verify_parent_pin` 반환 계약: `true` 성공, `false` 실패, `null` 잠금.
+  5번째 실패도 예외 없이 잠금을 저장한 뒤 `null`을 반환합니다(예외에 의한 rollback 방지).
+- 아이 헤더 → 부모님 메뉴의 로그아웃은 PIN 없이 가능합니다. 로그아웃은 PIN 재설정이 아닙니다.
+
 - 부모 PIN은 같은 로그인 세션의 UI 모드 전환 확인입니다. Supabase Auth/RLS 권한을 대체하지 않습니다.
 - 아이 헤더의 부모님 → PIN 확인 → 부모 홈, 아이 화면으로 복귀한 뒤에는 다시 PIN이 필요합니다.
 - 로컬 seed.sql의 DEV 수집물은 개발/통합 테스트 전용입니다. 출시 전 실제 catalog를 별도 data migration으로 준비해야 합니다.

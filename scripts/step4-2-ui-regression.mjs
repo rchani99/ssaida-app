@@ -1,0 +1,323 @@
+// Executes production TSX with a small deterministic hook/JSX harness.
+// This verifies handler/output logic, not the React renderer, Router or browser networking.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+import ts from 'typescript';
+
+const token = new Proxy({}, { get: () => 8 });
+const native = new Proxy(
+  { StyleSheet: { create: (value) => value }, Platform: { OS: 'web' } },
+  { get: (object, key) => object[key] ?? key },
+);
+const jsx = (type, props) => ({ type, props });
+function harness(path, name, mocks) {
+  const slots = [];
+  let cursor = 0;
+  let dirty = false;
+  let effects = [];
+  const react = {
+    useState(value) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = typeof value === 'function' ? value() : value;
+      return [
+        slots[index],
+        (value) => {
+          const next = typeof value === 'function' ? value(slots[index]) : value;
+          if (!Object.is(next, slots[index])) dirty = true;
+          slots[index] = next;
+        },
+      ];
+    },
+    useRef(value) {
+      const index = cursor++;
+      return slots[index] ?? (slots[index] = { current: value });
+    },
+    useEffect(callback, dependencies) {
+      const index = cursor++;
+      if (!slots[index] || dependencies.some((value, i) => !Object.is(value, slots[index][i]))) {
+        slots[index] = dependencies;
+        effects.push(callback);
+      }
+    },
+  };
+  const defaults = {
+    react,
+    'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    'react-native': native,
+    '@/design-system/tokens': { colors: token, radius: token, sizing: token, spacing: token },
+    'expo-router': {
+      useRouter: () => ({ replace() {}, back() {} }),
+      useLocalSearchParams: () => ({ taskId: 'task' }),
+      Stack: { Screen: 'Screen' },
+    },
+    '@/shared/components/screen-message': { ScreenMessage: 'ScreenMessage' },
+  };
+  const output = ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', output)(
+    (id) => {
+      if (id in mocks) return mocks[id];
+      if (id in defaults) return defaults[id];
+      throw new Error(`Missing mock: ${id}`);
+    },
+    module,
+    module.exports,
+  );
+  return {
+    render(props) {
+      for (let i = 0; i < 10; i++) {
+        dirty = false;
+        cursor = 0;
+        const tree = module.exports[name](props);
+        const jobs = effects;
+        effects = [];
+        jobs.forEach((callback) => callback());
+        if (!dirty) return tree;
+      }
+      throw new Error('Render loop');
+    },
+  };
+}
+function nodes(tree) {
+  if (!tree || typeof tree !== 'object') return [];
+  if (Array.isArray(tree)) return tree.flatMap(nodes);
+  return [tree, ...nodes(tree.props?.children)];
+}
+function text(tree) {
+  if (typeof tree === 'string' || typeof tree === 'number') return String(tree);
+  if (!tree) return '';
+  if (Array.isArray(tree)) return tree.map(text).join('');
+  return text(tree.props?.children);
+}
+function button(tree, label) {
+  const node = nodes(tree).find((node) => node.type === 'Pressable' && text(node) === label);
+  assert.ok(node, `Button: ${label}`);
+  return node.props;
+}
+const hooks = '@/features/learning/hooks/use-learning';
+const mutation = { isPending: false, isError: false, mutate() {} };
+
+let verdict = 'invalid';
+let mode = 'child';
+let route = null;
+let logoutCalls = 0;
+const pin = harness('src/features/auth/components/parent-mode-button.tsx', 'ParentModeButton', {
+  'expo-router': {
+    useRouter: () => ({
+      replace: (value) => {
+        route = value;
+      },
+    }),
+  },
+  '@/features/auth/hooks/use-auth': {
+    useAuth: () => ({
+      session: { user: { id: 'a' } },
+      signOut: async () => {
+        logoutCalls++;
+      },
+    }),
+  },
+  '@/features/auth/services/verify-parent-pin': { verifyParentPin: async () => verdict },
+  '@/lib/supabase/client': {
+    getSupabaseClient: () => ({
+      auth: { getSession: async () => ({ data: { session: { user: { id: 'a' } } } }) },
+    }),
+  },
+  '@/store/app-mode.store': {
+    useAppModeStore: {
+      getState: () => ({
+        setMode: (value) => {
+          mode = value;
+        },
+      }),
+    },
+  },
+});
+for (verdict of ['invalid', 'locked', 'valid']) {
+  let tree = pin.render();
+  button(tree, '부모님').onPress();
+  tree = pin.render();
+  nodes(tree)
+    .find((node) => node.type === 'TextInput')
+    .props.onChangeText('1234');
+  tree = pin.render();
+  button(tree, '확인').onPress();
+  await new Promise((resolve) => setImmediate(resolve));
+  tree = pin.render();
+  assert.equal(mode, verdict === 'valid' ? 'parent' : 'child');
+  if (verdict === 'invalid') assert.ok(text(tree).includes('PIN이 맞지 않아요.'));
+  if (verdict === 'locked') assert.ok(text(tree).includes('잠시 후 다시 시도해 주세요.'));
+  assert.equal(nodes(tree).find((node) => node.type === 'TextInput').props.value, '');
+}
+assert.equal(route, '/');
+mode = 'child';
+let tree = pin.render();
+button(tree, '부모님').onPress();
+tree = pin.render();
+button(tree, '로그아웃').onPress();
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(logoutCalls, 1);
+console.log(
+  'PASS PIN UI: invalid/locked remain child, valid uses root, clear input, logout without PIN',
+);
+
+let item = {
+  id: 'one',
+  status: 'COMPLETED',
+  revealed_at: null,
+  progress_points: 1,
+  growth_goal_snapshot: 1,
+  collectible_catalog: { name: 'HIDDEN_NAME' },
+};
+let success = false;
+const reveal = {
+  ...mutation,
+  mutate(id, callbacks) {
+    this.isError = !success;
+    if (success) callbacks.onSuccess();
+  },
+};
+const collection = harness(
+  'src/features/learning/components/collection-panel.tsx',
+  'CollectionPanel',
+  {
+    '@tanstack/react-query': { useQueryClient: () => ({ invalidateQueries: async () => {} }) },
+    [hooks]: {
+      learningKeys: { all: ['learning'] },
+      useCurrentCollectible: () => ({ data: item }),
+      useRevealCollectible: () => reveal,
+      useSelectCollectionTheme: () => mutation,
+    },
+  },
+);
+const props = { child: { id: 'child', selected_collection_theme_code: 'DINO' } };
+tree = collection.render(props);
+button(tree, '열어보기').onPress();
+tree = collection.render(props);
+assert.ok(!text(tree).includes('HIDDEN_NAME'));
+assert.ok(text(tree).includes('지금은 열어볼 수 없어요.'));
+success = true;
+button(tree, '열어보기').onPress();
+tree = collection.render(props);
+assert.ok(text(tree).includes('HIDDEN_NAME'));
+item = { ...item, id: 'two', status: 'GROWING' };
+assert.ok(!text(collection.render(props)).includes('HIDDEN_NAME'));
+console.log('PASS reveal: failure hides identity, success shows it, next collectible clears it');
+
+let calls = 0;
+const ensure = {
+  ...mutation,
+  isError: true,
+  mutate: () => {
+    calls++;
+  },
+};
+const today = harness('src/features/learning/screens/child-today-screen.tsx', 'ChildTodayScreen', {
+  [hooks]: {
+    useCurrentChild: () => ({ data: { id: 'child' } }),
+    useEnsureDailyPlan: () => ({ ...ensure }),
+    useDailyPlan: () => ({}),
+    useDailyTasks: () => ({}),
+    useContinuingTasks: () => ({}),
+    useStartDailyTask: () => mutation,
+  },
+  '@/features/learning/utils/visible-tasks': { mergeVisibleTasks: () => [] },
+  '@/shared/utils/date': { toLocalDateString: () => '2026-09-10' },
+});
+tree = today.render();
+assert.equal(calls, 1);
+today.render();
+assert.equal(calls, 1);
+tree.props.onAction();
+today.render();
+today.render();
+assert.equal(calls, 2);
+console.log('PASS ensure: initial 1, one retry adds 1, rerenders add 0');
+
+let confirmCalls = 0;
+const parent = harness('src/features/learning/screens/parent-home-screen.tsx', 'ParentHomeScreen', {
+  'expo-router': {
+    useRouter: () => ({
+      replace: (value) => {
+        route = value;
+      },
+    }),
+  },
+  [hooks]: {
+    useCurrentChild: () => ({ data: { id: 'child', name: 'test' } }),
+    useStudyItems: () => ({ data: [{ id: 'item', workbook_last_page: 100 }] }),
+    usePendingConfirmations: () => ({
+      data: [
+        {
+          id: 'task',
+          study_item_id: 'item',
+          item_type: 'WORKBOOK',
+          planned_start_page: 1,
+          planned_end_page: 5,
+        },
+      ],
+    }),
+    useConfirmDailyTasks: () => ({
+      ...mutation,
+      mutate: () => {
+        confirmCalls++;
+      },
+    }),
+  },
+  '@/store/app-mode.store': {
+    useAppModeStore: () => (value) => {
+      mode = value;
+    },
+  },
+});
+tree = parent.render();
+nodes(tree)
+  .find((node) => node.type === 'TextInput')
+  .props.onChangeText('101');
+tree = parent.render();
+button(tree, '모두 확인했어요').onPress();
+tree = parent.render();
+assert.equal(confirmCalls, 0);
+assert.ok(text(tree).includes('마지막 쪽을 넘을 수 없어요.'));
+nodes(tree)
+  .find((node) => node.type === 'TextInput')
+  .props.onChangeText('100');
+tree = parent.render();
+button(tree, '모두 확인했어요').onPress();
+assert.equal(confirmCalls, 1);
+button(tree, '아이 화면').onPress();
+assert.equal(mode, 'child');
+assert.equal(route, '/');
+console.log('PASS workbook upper bound and parent-to-child root navigation');
+
+let status;
+const session = harness(
+  'src/features/learning/screens/study-session-screen.tsx',
+  'StudySessionScreen',
+  {
+    [hooks]: {
+      useDailyTask: () => ({
+        data: {
+          id: 'task',
+          status,
+          item_type: 'ACTIVITY',
+          name_snapshot: 'test',
+          planned_minutes: 20,
+        },
+      }),
+      useStartDailyTask: () => mutation,
+      useCompleteDailyTask: () => mutation,
+    },
+  },
+);
+for (status of ['CHILD_COMPLETED', 'PARENT_CONFIRMED', 'PARTIAL', 'SKIPPED']) {
+  tree = session.render();
+  assert.equal(nodes(tree).filter((node) => node.type === 'Pressable').length, 0);
+  assert.ok(!text(tree).includes(status));
+}
+status = 'RETRY';
+assert.equal(button(session.render(), '공부 시작').disabled, false);
+console.log('PASS finalized CTA: all four terminal states hidden; RETRY enabled');

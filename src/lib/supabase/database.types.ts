@@ -326,18 +326,24 @@ export type Database = {
       parent_pin_credentials: {
         Row: {
           created_at: string;
+          failed_attempts: number;
+          locked_until: string | null;
           parent_id: string;
           pin_hash: string;
           updated_at: string;
         };
         Insert: {
           created_at?: string;
+          failed_attempts?: number;
+          locked_until?: string | null;
           parent_id: string;
           pin_hash: string;
           updated_at?: string;
         };
         Update: {
           created_at?: string;
+          failed_attempts?: number;
+          locked_until?: string | null;
           parent_id?: string;
           pin_hash?: string;
           updated_at?: string;

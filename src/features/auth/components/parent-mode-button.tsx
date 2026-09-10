@@ -18,10 +18,11 @@ import { useAppModeStore } from '@/store/app-mode.store';
 
 export function ParentModeButton() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const [visible, setVisible] = useState(false);
   const [pin, setPin] = useState('');
   const [pending, setPending] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const attempt = useRef(0);
   const submitting = useRef(false);
@@ -52,16 +53,16 @@ export function ParentModeButton() {
     const result = verifyParentPin(pin);
     setPin('');
     try {
-      const valid = await result;
+      const verdict = await result;
       const { data } = await getSupabaseClient().auth.getSession();
       if (request !== attempt.current || data.session?.user.id !== userId) return;
-      if (!valid) {
-        setError('PIN이 맞지 않아요.');
+      if (verdict !== 'valid') {
+        setError(verdict === 'locked' ? '잠시 후 다시 시도해 주세요.' : 'PIN이 맞지 않아요.');
         return;
       }
       close();
       useAppModeStore.getState().setMode('parent');
-      router.replace('/parent/home');
+      router.replace('/');
     } catch {
       if (request === attempt.current) setError('PIN을 확인하지 못했어요. 다시 시도해 주세요.');
     } finally {
@@ -69,6 +70,25 @@ export function ParentModeButton() {
         submitting.current = false;
         setPending(false);
       }
+    }
+  };
+
+  const logout = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
+    attempt.current += 1;
+    setPin('');
+    setError(null);
+    setSigningOut(true);
+    try {
+      await signOut();
+      // AuthProvider resets the mode and cache; the auth guard routes to login.
+      close();
+    } catch {
+      setError('로그아웃하지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      submitting.current = false;
+      setSigningOut(false);
     }
   };
 
@@ -89,7 +109,7 @@ export function ParentModeButton() {
               textContentType="none"
               keyboardType="number-pad"
               maxLength={4}
-              editable={!pending}
+              editable={!pending && !signingOut}
               value={pin}
               onChangeText={(value) => setPin(value.replace(/\D/g, ''))}
               onSubmitEditing={() => void submit()}
@@ -102,7 +122,7 @@ export function ParentModeButton() {
             )}
             <Pressable
               accessibilityRole="button"
-              disabled={pending || pin.length !== 4}
+              disabled={pending || signingOut || pin.length !== 4}
               onPress={() => void submit()}
               style={styles.confirm}
             >
@@ -112,8 +132,24 @@ export function ParentModeButton() {
                 <Text style={styles.confirmText}>확인</Text>
               )}
             </Pressable>
-            <Pressable accessibilityRole="button" onPress={close} style={styles.cancel}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={signingOut}
+              onPress={close}
+              style={styles.cancel}
+            >
               <Text style={styles.openText}>취소</Text>
+            </Pressable>
+            <Text style={styles.help}>
+              PIN을 잊었다면 로그아웃할 수 있어요. PIN은 초기화되지 않아요.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              disabled={pending || signingOut}
+              onPress={() => void logout()}
+              style={styles.cancel}
+            >
+              <Text style={styles.openText}>{signingOut ? '로그아웃 중…' : '로그아웃'}</Text>
             </Pressable>
           </View>
         </View>
@@ -161,4 +197,5 @@ const styles = StyleSheet.create({
   confirmText: { color: colors.card, fontWeight: '700', fontSize: 16 },
   cancel: { alignItems: 'center', padding: spacing.sm },
   error: { color: colors.error, fontSize: 14 },
+  help: { color: colors.textSecondary, fontSize: 13, textAlign: 'center' },
 });

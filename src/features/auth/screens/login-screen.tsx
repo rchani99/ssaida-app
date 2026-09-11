@@ -5,6 +5,12 @@ import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { signInWithGoogle } from '@/features/auth/services/google-oauth';
 
+// Keep the local password form out of the production module graph.
+const LocalTestLogin = __DEV__
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- release must drop this dependency
+    (require('../dev/local-test-login') as typeof import('../dev/local-test-login')).LocalTestLogin
+  : null;
+
 export function LoginScreen() {
   const { errorMessage: configurationError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,6 +54,7 @@ export function LoginScreen() {
             )}
           </Pressable>
           <Text style={styles.guide}>부모 계정으로 로그인해 주세요.</Text>
+          {__DEV__ && LocalTestLogin && <LocalTestLogin />}
           {displayedError && <Text style={styles.error}>{displayedError}</Text>}
         </View>
       </View>

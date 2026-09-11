@@ -14,13 +14,13 @@ import {
 import { prioritizeTodayTasks } from '@/features/learning/utils/exception-tasks';
 import { mergeVisibleTasks } from '@/features/learning/utils/visible-tasks';
 import { ScreenMessage } from '@/shared/components/screen-message';
-import { toLocalDateString } from '@/shared/utils/date';
+import { useToday } from '@/shared/hooks/use-today';
 
 import type { DailyTask } from '@/features/learning/types/learning.types';
 
 export function ChildTodayScreen() {
   const router = useRouter();
-  const today = toLocalDateString();
+  const today = useToday();
   const childQuery = useCurrentChild();
   const childId = childQuery.data?.id;
   const ensurePlan = useEnsureDailyPlan();

@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { colors } from '@/design-system/tokens';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { LoadingScreen } from '@/features/auth/screens/loading-screen';
+import { NotificationRouting } from '@/features/notifications/notification-routing';
 import { AppProviders } from '@/providers/app-providers';
 import { useAppModeStore } from '@/store/app-mode.store';
 
@@ -38,22 +39,25 @@ function RootNavigator() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!isAuthenticated}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-      <Stack.Protected guard={needsOnboarding}>
-        <Stack.Screen name="(onboarding)" />
-      </Stack.Protected>
-      <Stack.Protected guard={isAuthenticated && !needsOnboarding}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="child" />
-        <Stack.Protected guard={mode === 'parent'}>
-          <Stack.Screen name="parent" />
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={!isAuthenticated}>
+          <Stack.Screen name="(auth)" />
         </Stack.Protected>
-        <Stack.Screen name="study/[taskId]" />
-      </Stack.Protected>
-    </Stack>
+        <Stack.Protected guard={needsOnboarding}>
+          <Stack.Screen name="(onboarding)" />
+        </Stack.Protected>
+        <Stack.Protected guard={isAuthenticated && !needsOnboarding}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="child" />
+          <Stack.Protected guard={mode === 'parent'}>
+            <Stack.Screen name="parent" />
+          </Stack.Protected>
+          <Stack.Screen name="study/[taskId]" />
+        </Stack.Protected>
+      </Stack>
+      {isAuthenticated && !needsOnboarding && <NotificationRouting />}
+    </>
   );
 }
 

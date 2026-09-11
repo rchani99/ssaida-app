@@ -1,5 +1,7 @@
+# Keep Windows CMake/Ninja native paths below MAX_PATH (see docs/step6-1-android-build.md).
+nodeLinker: hoisted
 allowBuilds:
-  unrs-resolver: set this to true or false
+  unrs-resolver: false
 minimumReleaseAgeExclude:
   - '@expo/cli@57.0.18'
   - '@expo/config-plugins@57.0.9'

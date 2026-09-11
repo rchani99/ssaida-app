@@ -16,7 +16,10 @@ import { verifyParentPin } from '@/features/auth/services/verify-parent-pin';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useAppModeStore } from '@/store/app-mode.store';
 
-export function ParentModeButton() {
+export function ParentModeButton({
+  openRequest = 0,
+  onOpenRequestHandled,
+}: { openRequest?: number; onOpenRequestHandled?: () => void } = {}) {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const [visible, setVisible] = useState(false);
@@ -38,6 +41,7 @@ export function ParentModeButton() {
     attempt.current += 1;
     submitting.current = false;
     setVisible(false);
+    onOpenRequestHandled?.();
     setPin('');
     setError(null);
     setPending(false);
@@ -100,7 +104,7 @@ export function ParentModeButton() {
         <Text style={styles.openText}>부모님</Text>
       </Pressable>
       <Modal
-        visible={visible}
+        visible={visible || Boolean(openRequest)}
         transparent
         animationType="fade"
         onRequestClose={() => {

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { useAuth } from '@/features/auth/hooks/use-auth';
+import { NotificationSettingsPanel } from '@/features/notifications/notification-settings-panel';
 
 export function SettingsScreen() {
   const { signOut } = useAuth();
@@ -22,9 +23,9 @@ export function SettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>설정</Text>
-      <Text style={styles.description}>부모 모드 placeholder 화면</Text>
+      <NotificationSettingsPanel />
       <Pressable
         accessibilityRole="button"
         disabled={isSigningOut}
@@ -38,21 +39,18 @@ export function SettingsScreen() {
         )}
       </Pressable>
       {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexGrow: 1,
     gap: spacing.sm,
     padding: spacing.lg,
     backgroundColor: colors.background,
   },
   title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700' },
-  description: { color: colors.textSecondary, fontSize: 16 },
   button: {
     width: '100%',
     height: sizing.buttonHeight,

@@ -26,6 +26,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      ["expo-notifications", { "defaultChannel": "ssaida-reminders", "color": "#5E8D63" }],
       "expo-router",
       [
         "expo-web-browser",

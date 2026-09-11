@@ -63,6 +63,7 @@ function harness(path, name, mocks) {
     },
   };
   const defaults = {
+    '@/shared/hooks/use-today': { useToday: () => '2026-09-10' },
     react,
     'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
     'react-native': native,
@@ -526,6 +527,11 @@ for (const [label, confirmLabel] of [
   assert.ok(text(firstCard).includes('진행 중인 공부예요.'));
   assert.ok(nodes(firstCard).some((node) => node.props?.accessibilityViewIsModal));
   assert.ok(button(firstCard, confirmLabel));
+  assert.equal(
+    nodes(tree).filter((node) => node.props?.accessibilityViewIsModal).length,
+    1,
+    'confirmation belongs only to the selected card, not a separate list footer',
+  );
   assert.equal(moveCalls + skipCalls, label === '오늘에 추가' ? 0 : 1);
   button(firstCard, '취소').onPress();
   assert.ok(!text(manualTree()).includes(confirmLabel));
@@ -538,3 +544,77 @@ console.log(
   'PASS Step 5 polish: numeric sanitization, type/reset fields, task-local confirmation and cancel',
 );
 console.log('PASS finalized CTA: all four terminal states hidden; RETRY enabled');
+
+mode = 'child';
+let handledGate = 0;
+tree = pin.render({
+  openRequest: 1,
+  onOpenRequestHandled: () => {
+    handledGate++;
+  },
+});
+assert.equal(nodes(tree).find((node) => node.type === 'Modal').props.visible, true);
+assert.equal(mode, 'child', 'notification request must not grant parent mode');
+button(tree, '취소').onPress();
+assert.equal(handledGate, 1);
+assert.equal(nodes(pin.render()).find((node) => node.type === 'Modal').props.visible, false);
+let enabledNotifications = 0;
+let savedNotifications;
+const notificationDefaults = {
+  notificationsEnabled: false,
+  parentCheckReminderEnabled: false,
+  parentCheckReminderTime: '',
+  unfinishedReminderEnabled: false,
+  unfinishedReminderTime: '',
+};
+const notificationSettings = harness(
+  'src/features/notifications/notification-settings-panel.tsx',
+  'NotificationSettingsPanel',
+  {
+    '@/features/notifications/notification-context': {
+      useNotifications: () => ({
+        settings: notificationDefaults,
+        permission: 'undetermined',
+        ready: true,
+        supported: true,
+        enable: async () => {
+          enabledNotifications++;
+        },
+        save: async (value) => {
+          savedNotifications = value;
+        },
+      }),
+    },
+    '@/features/notifications/types': loadPlain('src/features/notifications/types.ts'),
+  },
+);
+tree = notificationSettings.render();
+assert.equal(enabledNotifications, 0);
+button(tree, '설명을 확인했어요 · 알림 켜기').onPress();
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(enabledNotifications, 1);
+tree = notificationSettings.render();
+nodes(tree)
+  .find((node) => node.type === 'Switch' && node.props.accessibilityLabel === '부모 확인시간 알림')
+  .props.onValueChange(true);
+tree = notificationSettings.render();
+assert.equal(savedNotifications, undefined, 'switch edits remain draft until save');
+button(tree, '알림 설정 저장').onPress();
+assert.equal(savedNotifications, undefined);
+assert.ok(text(notificationSettings.render()).includes('24시간 형식'));
+nodes(notificationSettings.render())
+  .find(
+    (node) =>
+      node.type === 'TextInput' &&
+      node.props.accessibilityLabel === '부모 확인시간 알림 시간 (24시간 HH:MM)',
+  )
+  .props.onChangeText('20:30');
+assert.equal(savedNotifications, undefined, 'time edits remain draft until save');
+button(notificationSettings.render(), '알림 설정 저장').onPress();
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(savedNotifications.parentCheckReminderTime, '20:30');
+assert.equal(savedNotifications.parentCheckReminderEnabled, true);
+assert.ok(text(notificationSettings.render()).includes('알림 설정을 저장했어요.'));
+console.log(
+  'PASS Step 6 UI: notification opens PIN without bypass; explicit permission action and HH:MM validation',
+);

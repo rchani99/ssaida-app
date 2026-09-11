@@ -14,12 +14,12 @@ import {
   useSkipManualTask,
   useUnresolvedManualTasks,
 } from '@/features/learning/hooks/use-learning';
-import { toLocalDateString } from '@/shared/utils/date';
+import { useToday } from '@/shared/hooks/use-today';
 
 import type { DailyTaskWithPlan, ManualTaskInput } from '@/features/learning/types/learning.types';
 
 export function ManualTasksPanel({ childId }: { childId: string }) {
-  const today = toLocalDateString();
+  const today = useToday();
   const plan = useDailyPlan(childId, today);
   const tasks = useDailyTasks(plan.data?.id);
   const unresolved = useUnresolvedManualTasks(childId, today);

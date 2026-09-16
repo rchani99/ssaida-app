@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { useAuth } from '@/features/auth/hooks/use-auth';
@@ -31,7 +32,7 @@ export function LoginScreen() {
   const displayedError = errorMessage ?? configurationError;
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.copy}>
           <Text style={styles.title}>쌓이다</Text>
           <Text style={styles.subtitle}>오늘이 모여 습관이 됩니다.</Text>
@@ -57,7 +58,7 @@ export function LoginScreen() {
           {__DEV__ && LocalTestLogin && <LocalTestLogin />}
           {displayedError && <Text style={styles.error}>{displayedError}</Text>}
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -65,7 +66,7 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: 96,

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from 'reac
 
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { useAuth } from '@/features/auth/hooks/use-auth';
+import { RestWeekdaysPanel } from '@/features/learning/components/rest-weekdays-panel';
 import { NotificationSettingsPanel } from '@/features/notifications/notification-settings-panel';
 
 export function SettingsScreen() {
@@ -25,6 +26,7 @@ export function SettingsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>설정</Text>
+      <RestWeekdaysPanel />
       <NotificationSettingsPanel />
       <Pressable
         accessibilityRole="button"

@@ -1,14 +1,6 @@
 import { useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { getSupabaseClient } from '@/lib/supabase/client';

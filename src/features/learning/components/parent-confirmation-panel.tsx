@@ -22,7 +22,8 @@ import type { ConfirmationDraft } from '@/features/learning/utils/exception-task
 
 export function ParentConfirmationPanel({ childId }: { childId: string }) {
   const pendingQuery = usePendingConfirmations(childId);
-  const itemsQuery = useStudyItems(childId);
+  // Deleted originals still validate historical, unverified workbook tasks.
+  const itemsQuery = useStudyItems(childId, true);
   const reviewQuery = useReviewTasks(childId);
   const confirm = useConfirmDailyTasks();
   const [drafts, setDrafts] = useState<Record<string, ConfirmationDraft>>({});

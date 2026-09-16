@@ -23,6 +23,7 @@ export type CreateStudyItemInput = {
   studyWeekdays: number[];
   workbookPagesPerSession?: number;
   workbookLastPage?: number;
+  workbookNextStartPage?: number;
 };
 
 export type ConfirmationInput = {

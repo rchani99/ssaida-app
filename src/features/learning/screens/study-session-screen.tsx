@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import {
@@ -44,9 +45,9 @@ export function StudySessionScreen() {
   const canComplete = task.status === 'IN_PROGRESS';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: true, title: '공부하기' }} />
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.copy}>
           <Text style={styles.eyebrow}>{task.item_type === 'WORKBOOK' ? '문제집' : '활동'}</Text>
           <Text style={styles.title}>{task.name_snapshot}</Text>
@@ -95,14 +96,14 @@ export function StudySessionScreen() {
         {(startTask.isError || completeTask.isError) && (
           <Text style={styles.error}>처리하지 못했어요. 잠시 후 다시 시도해 주세요.</Text>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  container: { flex: 1, justifyContent: 'space-between', gap: spacing.xl, padding: spacing.lg },
+  container: { flexGrow: 1, justifyContent: 'space-between', gap: spacing.xl, padding: spacing.lg },
   copy: { alignItems: 'center', gap: spacing.md, paddingTop: 72 },
   eyebrow: { color: colors.primary, fontSize: 14, fontWeight: '700' },
   title: { color: colors.textPrimary, fontSize: 30, fontWeight: '800', textAlign: 'center' },

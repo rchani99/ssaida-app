@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  updateStudyItem,
+  changeStudyItemStatus,
+  saveRestWeekdays,
   addManualDailyTask,
   fetchReviewTasks,
   fetchUnresolvedManualTasks,
@@ -73,12 +76,25 @@ export function useCurrentChild() {
   return useQuery({ queryKey: learningKeys.child, queryFn: fetchCurrentChild });
 }
 
-export function useStudyItems(childId?: string) {
+export function useStudyItems(childId?: string, includeDeleted = false) {
   return useQuery({
-    queryKey: learningKeys.studyItems(childId ?? ''),
-    queryFn: () => fetchStudyItems(childId!),
+    queryKey: [...learningKeys.studyItems(childId ?? ''), includeDeleted],
+    queryFn: () => fetchStudyItems(childId!, includeDeleted),
     enabled: Boolean(childId),
   });
+}
+
+export function useUpdateStudyItem() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({ mutationFn: updateStudyItem, onSuccess: invalidate });
+}
+export function useChangeStudyItemStatus() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({ mutationFn: changeStudyItemStatus, onSuccess: invalidate });
+}
+export function useSaveRestWeekdays() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({ mutationFn: saveRestWeekdays, onSuccess: invalidate });
 }
 
 export function useDailyPlan(childId: string | undefined, planDate: string) {

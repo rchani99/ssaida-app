@@ -19,11 +19,13 @@ import {
   useCreateStudyItem,
   useCurrentChild,
   useStudyItems,
+  useUpdateStudyItem,
+  useChangeStudyItemStatus,
 } from '@/features/learning/hooks/use-learning';
 import { ScreenMessage } from '@/shared/components/screen-message';
 import { useAppModeStore } from '@/store/app-mode.store';
 
-import type { CreateStudyItemInput } from '@/features/learning/types/learning.types';
+import type { CreateStudyItemInput, StudyItem } from '@/features/learning/types/learning.types';
 import type { ComponentProps, ReactNode } from 'react';
 
 const SUBJECTS = [
@@ -80,28 +82,34 @@ export function ParentHomeScreen() {
         <StudyItemForm childId={childQuery.data.id} />
 
         <Section title="등록한 공부">
+          <Text style={styles.description}>
+            잠시 쉬거나 삭제해도 이미 만들어진 계획과 기록은 유지돼요.
+          </Text>
           {studyItemsQuery.isLoading ? (
             <ActivityIndicator color={colors.primary} />
           ) : studyItemsQuery.isError ? (
             <Text style={styles.error}>등록 공부를 불러오지 못했어요.</Text>
           ) : studyItemsQuery.data?.length ? (
             studyItemsQuery.data.map((item) => (
-              <View key={item.id} style={styles.listRow}>
-                <View style={styles.rowCopy}>
-                  <Text style={styles.rowTitle}>{item.name}</Text>
-                  <Text style={styles.rowDetail}>
-                    {item.item_type === 'WORKBOOK'
-                      ? `${item.workbook_last_completed_page}쪽까지 완료 · 한 번에 ${item.workbook_pages_per_session}쪽`
-                      : `매번 약 ${item.estimated_minutes}분`}
+              <View key={item.id}>
+                <View style={styles.listRow}>
+                  <View style={styles.rowCopy}>
+                    <Text style={styles.rowTitle}>{item.name}</Text>
+                    <Text style={styles.rowDetail}>
+                      {item.item_type === 'WORKBOOK'
+                        ? `${item.workbook_last_completed_page}쪽까지 완료 · 한 번에 ${item.workbook_pages_per_session}쪽`
+                        : `매번 약 ${item.estimated_minutes}분`}
+                    </Text>
+                  </View>
+                  <Text style={styles.badge}>
+                    {item.status === 'ACTIVE'
+                      ? '사용 중'
+                      : item.status === 'COMPLETED'
+                        ? '완료'
+                        : '멈춤'}
                   </Text>
                 </View>
-                <Text style={styles.badge}>
-                  {item.status === 'ACTIVE'
-                    ? '사용 중'
-                    : item.status === 'COMPLETED'
-                      ? '완료'
-                      : '멈춤'}
-                </Text>
+                <StudyItemActions item={item} />
               </View>
             ))
           ) : (
@@ -116,35 +124,180 @@ export function ParentHomeScreen() {
   );
 }
 
-function StudyItemForm({ childId }: { childId: string }) {
+function StudyItemActions({ item }: { item: StudyItem }) {
+  const change = useChangeStudyItemStatus();
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const action = (status: 'ACTIVE' | 'PAUSED' | 'DELETED') => change.mutate({ item, status });
+  return (
+    <View style={styles.form}>
+      <View style={styles.segment}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={change.isPending}
+          onPress={() => {
+            setEditing(!editing);
+            setDeleting(false);
+          }}
+          style={styles.secondaryButton}
+        >
+          <Text style={styles.secondaryButtonText}>수정</Text>
+        </Pressable>
+        {item.status === 'ACTIVE' && (
+          <Pressable
+            accessibilityRole="button"
+            disabled={change.isPending || editing}
+            onPress={() => action('PAUSED')}
+            style={styles.secondaryButton}
+          >
+            <Text style={styles.secondaryButtonText}>잠시 쉬기</Text>
+          </Pressable>
+        )}
+        {item.status === 'PAUSED' && (
+          <Pressable
+            accessibilityRole="button"
+            disabled={change.isPending || editing}
+            onPress={() => action('ACTIVE')}
+            style={styles.secondaryButton}
+          >
+            <Text style={styles.secondaryButtonText}>다시 시작</Text>
+          </Pressable>
+        )}
+        <Pressable
+          accessibilityRole="button"
+          disabled={change.isPending || editing}
+          onPress={() => setDeleting(!deleting)}
+          style={styles.secondaryButton}
+        >
+          <Text style={styles.secondaryButtonText}>삭제</Text>
+        </Pressable>
+      </View>
+      {editing && (
+        <StudyItemForm
+          key={item.updated_at}
+          childId={item.child_id}
+          item={item}
+          onClose={() => setEditing(false)}
+        />
+      )}
+      {deleting && (
+        <View style={styles.form}>
+          <Text style={styles.description}>
+            등록한 공부를 삭제할까요? 이미 만들어진 계획과 학습 기록은 유지돼요.
+          </Text>
+          <View style={styles.segment}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={change.isPending}
+              onPress={() => setDeleting(false)}
+              style={styles.secondaryButton}
+            >
+              <Text>취소</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={change.isPending}
+              onPress={() => action('DELETED')}
+              style={styles.secondaryButton}
+            >
+              <Text>삭제 확인</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+      {change.isError && (
+        <Text accessibilityRole="alert" style={styles.error}>
+          변경하지 못했어요. 목록을 다시 불러온 뒤 시도해 주세요.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function StudyItemForm({
+  childId,
+  item,
+  onClose,
+}: {
+  childId: string;
+  item?: StudyItem;
+  onClose?: () => void;
+}) {
   const createItem = useCreateStudyItem();
-  const [expanded, setExpanded] = useState(false);
-  const [itemType, setItemType] = useState<'WORKBOOK' | 'ACTIVITY'>('WORKBOOK');
-  const [name, setName] = useState('');
-  const [subject, setSubject] = useState<CreateStudyItemInput['subject']>(null);
-  const [minutes, setMinutes] = useState('20');
-  const [weekdays, setWeekdays] = useState<number[]>([]);
-  const [pagesPerSession, setPagesPerSession] = useState('5');
-  const [lastPage, setLastPage] = useState('100');
+  const updateItem = useUpdateStudyItem();
+  const busy = createItem.isPending || updateItem.isPending;
+  const [expanded, setExpanded] = useState(Boolean(item));
+  const [itemType, setItemType] = useState<'WORKBOOK' | 'ACTIVITY'>(
+    item?.item_type === 'ACTIVITY' ? 'ACTIVITY' : 'WORKBOOK',
+  );
+  const [name, setName] = useState(item?.name ?? '');
+  const [subject, setSubject] = useState<CreateStudyItemInput['subject']>(
+    (item?.subject as CreateStudyItemInput['subject']) ?? null,
+  );
+  const [minutes, setMinutes] = useState(String(item?.estimated_minutes ?? 20));
+  const [weekdays, setWeekdays] = useState<number[]>(item?.study_weekdays ?? []);
+  const [pagesPerSession, setPagesPerSession] = useState(
+    String(item?.workbook_pages_per_session ?? 5),
+  );
+  const [lastPage, setLastPage] = useState(String(item?.workbook_last_page ?? 100));
+  const initialNextPage =
+    item?.workbook_next_start_page_override ?? (item?.workbook_last_completed_page ?? 0) + 1;
+  const [nextPage, setNextPage] = useState(String(initialNextPage));
   const [message, setMessage] = useState<string | null>(null);
 
   const submit = () => {
+    if (busy) return;
     setMessage(null);
     const estimatedMinutes = Number(minutes);
     const pages = Number(pagesPerSession);
     const last = Number(lastPage);
+    const next = Number(nextPage);
+    if (item?.item_type === 'WORKBOOK' && last < (item.workbook_last_page ?? 0)) {
+      return setMessage('기존 계획을 보호하기 위해 등록된 마지막 페이지는 줄일 수 없어요.');
+    }
     if (!name.trim()) return setMessage('공부 이름을 입력해 주세요.');
     if (weekdays.length === 0) return setMessage('공부할 요일을 하나 이상 선택해 주세요.');
-    if (!Number.isInteger(estimatedMinutes) || estimatedMinutes <= 0) {
+    if (!Number.isInteger(estimatedMinutes) || estimatedMinutes <= 0 || estimatedMinutes > 32767) {
       return setMessage('예상시간을 확인해 주세요.');
     }
     if (
       itemType === 'WORKBOOK' &&
-      (!Number.isInteger(pages) || pages <= 0 || !Number.isInteger(last) || last <= 0)
+      (!Number.isInteger(pages) ||
+        pages <= 0 ||
+        pages > 32767 ||
+        !Number.isInteger(last) ||
+        last <= 0 ||
+        last > 2147483647 ||
+        (item?.status !== 'COMPLETED' && (!Number.isInteger(next) || next < 1 || next > last)) ||
+        (item &&
+          (last < (item.workbook_last_completed_page ?? 0) ||
+            (item.status === 'COMPLETED' && last !== item.workbook_last_page))))
     ) {
       return setMessage('문제집 페이지 정보를 확인해 주세요.');
     }
 
+    if (item) {
+      updateItem.mutate(
+        {
+          item,
+          values: {
+            name,
+            subject,
+            estimatedMinutes,
+            studyWeekdays: weekdays,
+            workbookPagesPerSession: pages,
+            workbookLastPage: last,
+            workbookNextStartPage:
+              itemType === 'WORKBOOK' && next !== initialNextPage ? next : undefined,
+          },
+        },
+        {
+          onSuccess: onClose,
+          onError: () => setMessage('저장하지 못했어요. 목록을 다시 불러온 뒤 확인해 주세요.'),
+        },
+      );
+      return;
+    }
     createItem.mutate(
       {
         childId,
@@ -155,10 +308,12 @@ function StudyItemForm({ childId }: { childId: string }) {
         studyWeekdays: weekdays,
         workbookPagesPerSession: itemType === 'WORKBOOK' ? pages : undefined,
         workbookLastPage: itemType === 'WORKBOOK' ? last : undefined,
+        workbookNextStartPage: itemType === 'WORKBOOK' ? next : undefined,
       },
       {
         onSuccess: () => {
           setName('');
+          setNextPage('1');
           setWeekdays([]);
           setExpanded(false);
           setMessage('공부를 등록했어요.');
@@ -169,7 +324,13 @@ function StudyItemForm({ childId }: { childId: string }) {
   };
 
   return (
-    <Section title="공부 등록">
+    <Section title={item ? '공부 수정' : '공부 등록'}>
+      {item && (
+        <Text style={styles.description}>
+          확정 진도와 이미 만들어진 계획은 바꾸지 않아요. 변경 내용은 앞으로 새로 생성되는 계획에
+          적용돼요.
+        </Text>
+      )}
       {!expanded ? (
         <Pressable
           accessibilityRole="button"
@@ -186,6 +347,7 @@ function StudyItemForm({ childId }: { childId: string }) {
                 accessibilityRole="radio"
                 accessibilityState={{ selected: itemType === type }}
                 key={type}
+                disabled={Boolean(item) || busy}
                 onPress={() => setItemType(type)}
                 style={[styles.segmentButton, itemType === type && styles.segmentSelected]}
               >
@@ -258,6 +420,15 @@ function StudyItemForm({ childId }: { childId: string }) {
               <View style={styles.flex}>
                 <LabeledInput
                   keyboardType="number-pad"
+                  label="다음 시작 페이지"
+                  editable={item?.status !== 'COMPLETED' && !busy}
+                  onChangeText={setNextPage}
+                  value={nextPage}
+                />
+              </View>
+              <View style={styles.flex}>
+                <LabeledInput
+                  keyboardType="number-pad"
                   label="한 번에 풀 페이지"
                   onChangeText={setPagesPerSession}
                   value={pagesPerSession}
@@ -275,14 +446,14 @@ function StudyItemForm({ childId }: { childId: string }) {
           )}
           <Pressable
             accessibilityRole="button"
-            disabled={createItem.isPending}
+            disabled={busy}
             onPress={submit}
             style={styles.primaryButton}
           >
-            {createItem.isPending ? (
+            {busy ? (
               <ActivityIndicator color={colors.card} />
             ) : (
-              <Text style={styles.primaryButtonText}>등록하기</Text>
+              <Text style={styles.primaryButtonText}>{item ? '변경 저장' : '등록하기'}</Text>
             )}
           </Pressable>
         </View>
@@ -300,7 +471,17 @@ function LabeledInput({ label, ...props }: ComponentProps<typeof TextInput> & { 
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput placeholderTextColor={colors.textSecondary} style={styles.input} {...props} />
+      <TextInput
+        accessibilityLabel={label}
+        placeholderTextColor={colors.textSecondary}
+        style={styles.input}
+        {...props}
+        onChangeText={(value) =>
+          props.onChangeText?.(
+            props.keyboardType === 'number-pad' ? value.replace(/\D/g, '') : value,
+          )
+        }
+      />
     </View>
   );
 }
@@ -341,7 +522,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '800' },
   form: { gap: spacing.md },
-  segment: { flexDirection: 'row', gap: spacing.sm },
+  segment: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   segmentButton: {
     flex: 1,
     alignItems: 'center',
@@ -376,7 +557,7 @@ const styles = StyleSheet.create({
   chipSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
   chipText: { color: colors.textSecondary, fontSize: 13 },
   chipTextSelected: { color: colors.primaryDark, fontWeight: '700' },
-  weekdays: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.xs },
+  weekdays: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   weekday: {
     width: 38,
     height: 38,
@@ -389,7 +570,7 @@ const styles = StyleSheet.create({
   weekdaySelected: { borderColor: colors.primary, backgroundColor: colors.primary },
   weekdayText: { color: colors.textSecondary, fontSize: 13 },
   weekdayTextSelected: { color: colors.card, fontWeight: '700' },
-  pageInputs: { flexDirection: 'row', gap: spacing.sm },
+  pageInputs: { gap: spacing.md },
   primaryButton: {
     minHeight: sizing.buttonHeight,
     alignItems: 'center',

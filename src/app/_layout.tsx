@@ -55,6 +55,7 @@ function RootNavigator() {
           </Stack.Protected>
           <Stack.Screen name="study/[taskId]" />
         </Stack.Protected>
+        <Stack.Screen name="auth/callback" />
       </Stack>
       {isAuthenticated && !needsOnboarding && <NotificationRouting />}
     </>

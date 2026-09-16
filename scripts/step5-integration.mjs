@@ -192,10 +192,11 @@ try {
       (task) => task.id === ht.id,
     ),
   );
+  // Use new plan dates: existing plans no longer backfill or regenerate AUTO tasks.
   const i = await makeItem('I Conflict');
-  const it = await auto(i, '2026-09-07');
+  const it = await auto(i, '2026-09-11');
   await done(it);
-  const future = await auto(i, '2026-09-08');
+  const future = await auto(i, '2026-09-12');
   assert.deepEqual([future.planned_start_page, future.planned_end_page], [6, 10]);
   await api.startDailyTask(future.id);
   assert.ok(

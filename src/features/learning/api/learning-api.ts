@@ -23,15 +23,90 @@ export async function fetchCurrentChild() {
   return data;
 }
 
-export async function fetchStudyItems(childId: string) {
-  const { data, error } = await getSupabaseClient()
-    .from('study_items')
-    .select('*')
-    .eq('child_id', childId)
-    .neq('status', 'DELETED')
-    .order('created_at');
+export async function fetchStudyItems(childId: string, includeDeleted = false) {
+  let query = getSupabaseClient().from('study_items').select('*').eq('child_id', childId);
+  if (!includeDeleted) query = query.neq('status', 'DELETED');
+  const { data, error } = await query.order('created_at');
   throwLearningError('fetchStudyItems', error);
   return data;
+}
+
+export async function updateStudyItem(input: {
+  item: import('@/features/learning/types/learning.types').StudyItem;
+  values: Pick<
+    CreateStudyItemInput,
+    | 'name'
+    | 'subject'
+    | 'estimatedMinutes'
+    | 'studyWeekdays'
+    | 'workbookPagesPerSession'
+    | 'workbookLastPage'
+    | 'workbookNextStartPage'
+  >;
+}) {
+  const { item, values } = input;
+  // Existing task snapshots must remain confirmable. Shrinking the workbook
+  // needs an atomic task-aware server operation; never silently invalidate them.
+  if (
+    item.item_type === 'WORKBOOK' &&
+    (values.workbookLastPage ?? 0) < (item.workbook_last_page ?? 0)
+  ) {
+    throw new Error('등록된 마지막 페이지는 줄일 수 없어요.');
+  }
+  const { error } = await getSupabaseClient().rpc('update_study_item', {
+    target_study_item_id: item.id,
+    expected_updated_at: item.updated_at,
+    changes: {
+      name: values.name.trim(),
+      subject: values.subject,
+      estimated_minutes: values.estimatedMinutes,
+      study_weekdays: values.studyWeekdays,
+      workbook_pages_per_session:
+        item.item_type === 'WORKBOOK' ? values.workbookPagesPerSession : null,
+      workbook_last_page: item.item_type === 'WORKBOOK' ? values.workbookLastPage : null,
+      ...(item.item_type === 'WORKBOOK' && values.workbookNextStartPage !== undefined
+        ? { next_start_page: values.workbookNextStartPage }
+        : {}),
+    },
+  });
+  throwLearningError('updateStudyItem', error);
+}
+
+export async function changeStudyItemStatus(input: {
+  item: import('@/features/learning/types/learning.types').StudyItem;
+  status: 'ACTIVE' | 'PAUSED' | 'DELETED';
+}) {
+  const { item, status } = input;
+  if (
+    (status === 'ACTIVE' && item.status !== 'PAUSED') ||
+    (status === 'PAUSED' && item.status !== 'ACTIVE')
+  )
+    throw new Error('목록을 다시 확인해 주세요.');
+  const { error } = await getSupabaseClient()
+    .from('study_items')
+    .update({
+      status,
+      deleted_at: status === 'DELETED' ? new Date().toISOString() : null,
+    })
+    .eq('id', item.id)
+    .eq('updated_at', item.updated_at)
+    .neq('status', 'DELETED')
+    .select('id')
+    .single();
+  throwLearningError('changeStudyItemStatus', error);
+}
+
+export async function saveRestWeekdays(input: { childId: string; weekdays: number[] }) {
+  const days = [...new Set(input.weekdays)].sort((a, b) => a - b);
+  if (days.some((day) => !Number.isInteger(day) || day < 1 || day > 7))
+    throw new Error('요일을 확인해 주세요.');
+  const { error } = await getSupabaseClient()
+    .from('children')
+    .update({ rest_weekdays: days })
+    .eq('id', input.childId)
+    .select('id')
+    .single();
+  throwLearningError('saveRestWeekdays', error);
 }
 
 export async function createStudyItem(input: CreateStudyItemInput) {
@@ -47,7 +122,8 @@ export async function createStudyItem(input: CreateStudyItemInput) {
       workbook_pages_per_session:
         input.itemType === 'WORKBOOK' ? input.workbookPagesPerSession : null,
       workbook_last_page: input.itemType === 'WORKBOOK' ? input.workbookLastPage : null,
-      workbook_last_completed_page: input.itemType === 'WORKBOOK' ? 0 : null,
+      workbook_last_completed_page:
+        input.itemType === 'WORKBOOK' ? (input.workbookNextStartPage ?? 1) - 1 : null,
     })
     .select('*')
     .single();

@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { useAuth } from '@/features/auth/hooks/use-auth';
@@ -68,110 +69,112 @@ export function OnboardingScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.keyboardView}
-    >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Text style={styles.progress}>{step + 1} / 3</Text>
-          <Text style={styles.title}>{getStepTitle(step)}</Text>
-          <Text style={styles.description}>{getStepDescription(step)}</Text>
-        </View>
+    <SafeAreaView style={styles.keyboardView}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardView}
+      >
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Text style={styles.progress}>{step + 1} / 3</Text>
+            <Text style={styles.title}>{getStepTitle(step)}</Text>
+            <Text style={styles.description}>{getStepDescription(step)}</Text>
+          </View>
 
-        <View style={styles.content}>
-          {step === 0 && (
-            <TextInput
-              autoFocus
-              maxLength={20}
-              onChangeText={setChildName}
-              placeholder="아이 이름"
-              placeholderTextColor={colors.textSecondary}
-              style={styles.input}
-              value={childName}
-            />
-          )}
+          <View style={styles.content}>
+            {step === 0 && (
+              <TextInput
+                autoFocus
+                maxLength={20}
+                onChangeText={setChildName}
+                placeholder="아이 이름"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                value={childName}
+              />
+            )}
 
-          {step === 1 && (
-            <View style={styles.optionList}>
-              {TARGET_OPTIONS.map((minutes) => {
-                const selected = dailyTargetMinutes === minutes;
-                return (
-                  <Pressable
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected }}
-                    key={minutes}
-                    onPress={() => setDailyTargetMinutes(minutes)}
-                    style={[styles.option, selected && styles.optionSelected]}
-                  >
-                    <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
-                      {minutes}분
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-
-          {step === 2 && (
-            <View style={styles.pinFields}>
-              <View style={styles.field}>
-                <Text style={styles.label}>PIN 4자리</Text>
-                <TextInput
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  onChangeText={(value) => setPin(value.replace(/\D/g, ''))}
-                  secureTextEntry
-                  style={styles.input}
-                  value={pin}
-                />
+            {step === 1 && (
+              <View style={styles.optionList}>
+                {TARGET_OPTIONS.map((minutes) => {
+                  const selected = dailyTargetMinutes === minutes;
+                  return (
+                    <Pressable
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      key={minutes}
+                      onPress={() => setDailyTargetMinutes(minutes)}
+                      style={[styles.option, selected && styles.optionSelected]}
+                    >
+                      <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
+                        {minutes}분
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-              <View style={styles.field}>
-                <Text style={styles.label}>PIN 재입력</Text>
-                <TextInput
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  onChangeText={(value) => setPinConfirmation(value.replace(/\D/g, ''))}
-                  secureTextEntry
-                  style={styles.input}
-                  value={pinConfirmation}
-                />
+            )}
+
+            {step === 2 && (
+              <View style={styles.pinFields}>
+                <View style={styles.field}>
+                  <Text style={styles.label}>PIN 4자리</Text>
+                  <TextInput
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    onChangeText={(value) => setPin(value.replace(/\D/g, ''))}
+                    secureTextEntry
+                    style={styles.input}
+                    value={pin}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>PIN 재입력</Text>
+                  <TextInput
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    onChangeText={(value) => setPinConfirmation(value.replace(/\D/g, ''))}
+                    secureTextEntry
+                    style={styles.input}
+                    value={pinConfirmation}
+                  />
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-        </View>
+            {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+          </View>
 
-        <View style={styles.footer}>
-          {step > 0 && (
+          <View style={styles.footer}>
+            {step > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                disabled={isSubmitting}
+                onPress={() => {
+                  setErrorMessage(null);
+                  setStep((current) => current - 1);
+                }}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>이전</Text>
+              </Pressable>
+            )}
             <Pressable
               accessibilityRole="button"
               disabled={isSubmitting}
-              onPress={() => {
-                setErrorMessage(null);
-                setStep((current) => current - 1);
-              }}
-              style={styles.backButton}
+              onPress={step === 2 ? submit : goNext}
+              style={[styles.primaryButton, step > 0 && styles.flexButton]}
             >
-              <Text style={styles.backButtonText}>이전</Text>
+              {isSubmitting ? (
+                <ActivityIndicator color={colors.card} />
+              ) : (
+                <Text style={styles.primaryButtonText}>{step === 2 ? '완료' : '다음'}</Text>
+              )}
             </Pressable>
-          )}
-          <Pressable
-            accessibilityRole="button"
-            disabled={isSubmitting}
-            onPress={step === 2 ? submit : goNext}
-            style={[styles.primaryButton, step > 0 && styles.flexButton]}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color={colors.card} />
-            ) : (
-              <Text style={styles.primaryButtonText}>{step === 2 ? '완료' : '다음'}</Text>
-            )}
-          </Pressable>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

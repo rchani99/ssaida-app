@@ -240,6 +240,7 @@ export type Database = {
           planned_end_page: number | null;
           planned_minutes: number;
           planned_start_page: number | null;
+          planning_revision: string | null;
           reward_collection_theme_code: string | null;
           sort_order: number;
           source_daily_task_id: string | null;
@@ -264,6 +265,7 @@ export type Database = {
           planned_end_page?: number | null;
           planned_minutes: number;
           planned_start_page?: number | null;
+          planning_revision?: string | null;
           reward_collection_theme_code?: string | null;
           sort_order: number;
           source_daily_task_id?: string | null;
@@ -288,6 +290,7 @@ export type Database = {
           planned_end_page?: number | null;
           planned_minutes?: number;
           planned_start_page?: number | null;
+          planning_revision?: string | null;
           reward_collection_theme_code?: string | null;
           sort_order?: number;
           source_daily_task_id?: string | null;
@@ -391,12 +394,14 @@ export type Database = {
           id: string;
           item_type: string;
           name: string;
+          planning_revision: string | null;
           status: string;
           study_weekdays: number[];
           subject: string | null;
           updated_at: string;
           workbook_last_completed_page: number | null;
           workbook_last_page: number | null;
+          workbook_next_start_page_override: number | null;
           workbook_pages_per_session: number | null;
         };
         Insert: {
@@ -407,12 +412,14 @@ export type Database = {
           id?: string;
           item_type: string;
           name: string;
+          planning_revision?: string | null;
           status?: string;
           study_weekdays: number[];
           subject?: string | null;
           updated_at?: string;
           workbook_last_completed_page?: number | null;
           workbook_last_page?: number | null;
+          workbook_next_start_page_override?: number | null;
           workbook_pages_per_session?: number | null;
         };
         Update: {
@@ -423,12 +430,14 @@ export type Database = {
           id?: string;
           item_type?: string;
           name?: string;
+          planning_revision?: string | null;
           status?: string;
           study_weekdays?: number[];
           subject?: string | null;
           updated_at?: string;
           workbook_last_completed_page?: number | null;
           workbook_last_page?: number | null;
+          workbook_next_start_page_override?: number | null;
           workbook_pages_per_session?: number | null;
         };
         Relationships: [
@@ -497,6 +506,14 @@ export type Database = {
       };
       undo_daily_task_completion: {
         Args: { target_daily_task_id: string };
+        Returns: undefined;
+      };
+      update_study_item: {
+        Args: {
+          changes: Json;
+          expected_updated_at: string;
+          target_study_item_id: string;
+        };
         Returns: undefined;
       };
       verify_parent_pin: { Args: { parent_pin: string }; Returns: boolean };

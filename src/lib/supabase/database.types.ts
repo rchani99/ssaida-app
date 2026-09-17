@@ -232,6 +232,7 @@ export type Database = {
           child_completed_at: string | null;
           created_at: string;
           daily_plan_id: string;
+          excluded_for_today: boolean;
           growth_weight: number;
           id: string;
           item_type: string;
@@ -241,6 +242,8 @@ export type Database = {
           planned_minutes: number;
           planned_start_page: number | null;
           planning_revision: string | null;
+          quantity_conflict: string | null;
+          quantity_manually_adjusted: boolean;
           reward_collection_theme_code: string | null;
           sort_order: number;
           source_daily_task_id: string | null;
@@ -257,6 +260,7 @@ export type Database = {
           child_completed_at?: string | null;
           created_at?: string;
           daily_plan_id: string;
+          excluded_for_today?: boolean;
           growth_weight?: number;
           id?: string;
           item_type: string;
@@ -266,6 +270,8 @@ export type Database = {
           planned_minutes: number;
           planned_start_page?: number | null;
           planning_revision?: string | null;
+          quantity_conflict?: string | null;
+          quantity_manually_adjusted?: boolean;
           reward_collection_theme_code?: string | null;
           sort_order: number;
           source_daily_task_id?: string | null;
@@ -282,6 +288,7 @@ export type Database = {
           child_completed_at?: string | null;
           created_at?: string;
           daily_plan_id?: string;
+          excluded_for_today?: boolean;
           growth_weight?: number;
           id?: string;
           item_type?: string;
@@ -291,6 +298,8 @@ export type Database = {
           planned_minutes?: number;
           planned_start_page?: number | null;
           planning_revision?: string | null;
+          quantity_conflict?: string | null;
+          quantity_manually_adjusted?: boolean;
           reward_collection_theme_code?: string | null;
           sort_order?: number;
           source_daily_task_id?: string | null;
@@ -484,6 +493,14 @@ export type Database = {
         Args: { target_child_id: string; target_plan_date: string };
         Returns: string;
       };
+      exclude_daily_task: {
+        Args: { expected_updated_at: string; target_daily_task_id: string };
+        Returns: undefined;
+      };
+      reorder_daily_tasks: {
+        Args: { ordered_tasks: Json; target_daily_plan_id: string };
+        Returns: undefined;
+      };
       reschedule_manual_task: {
         Args: { source_daily_task_id: string; target_plan_date: string };
         Returns: string;
@@ -506,6 +523,14 @@ export type Database = {
       };
       undo_daily_task_completion: {
         Args: { target_daily_task_id: string };
+        Returns: undefined;
+      };
+      update_daily_task_quantity: {
+        Args: {
+          expected_updated_at: string;
+          new_value: number;
+          target_daily_task_id: string;
+        };
         Returns: undefined;
       };
       update_study_item: {

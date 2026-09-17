@@ -18,6 +18,10 @@ export function buildConfirmations(
 ): ConfirmationInput[] {
   const selected = tasks.filter((task) => drafts[task.id]?.selected !== false);
   if (!selected.length) throw new Error('확인할 공부를 선택해 주세요.');
+  if (selected.some((task) => task.excluded_for_today))
+    throw new Error('오늘 제외된 공부는 확인할 수 없어요.');
+  if (selected.some((task) => task.quantity_conflict))
+    throw new Error('진도 변경으로 다시 확인이 필요한 공부가 있어요.');
   return selected.map((task) => {
     const draft = drafts[task.id];
     const status = draft?.status ?? 'PARENT_CONFIRMED';
@@ -69,6 +73,7 @@ export function unresolvedManualTasks(tasks: DailyTaskWithPlan[], today: string)
 // Normal planning-only provisional progress alone must not produce this warning.
 export function progressConflicts(tasks: DailyTaskWithPlan[], items: StudyItem[]) {
   return tasks.filter((task) => {
+    if (task.quantity_conflict) return true;
     if (
       task.source_type !== 'AUTO' ||
       task.item_type !== 'WORKBOOK' ||
@@ -104,9 +109,11 @@ export function needsParentReminder(task: DailyTask, now = Date.now()) {
   );
 }
 
-export function prioritizeTodayTasks<T extends Pick<DailyTask, 'status'>>(tasks: T[]): T[] {
+export function prioritizeTodayTasks<
+  T extends Pick<DailyTask, 'status'> & { excluded_for_today?: boolean },
+>(tasks: T[]): T[] {
   const rank: Record<string, number> = { IN_PROGRESS: 0, RETRY: 1, PLANNED: 2, CHILD_COMPLETED: 3 };
   return tasks
-    .filter((task) => task.status !== 'SKIPPED')
+    .filter((task) => !task.excluded_for_today && task.status !== 'SKIPPED')
     .sort((a, b) => (rank[a.status] ?? 4) - (rank[b.status] ?? 4));
 }

@@ -13,7 +13,8 @@ export function planNotices(
   ledger: DeliveryLedger,
   now: number,
 ) {
-  const { userId, childId, date, plan, tasks, pending } = snapshot;
+  const { userId, childId, date, plan, pending } = snapshot;
+  const tasks = snapshot.tasks.filter((task) => !task.excluded_for_today);
   const target = { userId, childId, destination: 'parent' as const };
   const scheduled: Notice[] = [];
   const immediate: { notice: Notice; keys: string[] }[] = [];
@@ -51,6 +52,7 @@ export function planNotices(
   }
   const overdue = pending.filter(
     (task) =>
+      !task.excluded_for_today &&
       task.status === 'CHILD_COMPLETED' &&
       task.parent_verified_at === null &&
       task.child_completed_at !== null &&

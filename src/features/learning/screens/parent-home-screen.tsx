@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +14,9 @@ import {
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { ManualTasksPanel } from '@/features/learning/components/manual-tasks-panel';
 import { ParentConfirmationPanel } from '@/features/learning/components/parent-confirmation-panel';
+import { TaskExclusionPanel } from '@/features/learning/components/task-exclusion-panel';
+import { TaskOrderPanel } from '@/features/learning/components/task-order-panel';
+import { TaskQuantityPanel } from '@/features/learning/components/task-quantity-panel';
 import {
   useCreateStudyItem,
   useCurrentChild,
@@ -23,7 +25,6 @@ import {
   useChangeStudyItemStatus,
 } from '@/features/learning/hooks/use-learning';
 import { ScreenMessage } from '@/shared/components/screen-message';
-import { useAppModeStore } from '@/store/app-mode.store';
 
 import type { CreateStudyItemInput, StudyItem } from '@/features/learning/types/learning.types';
 import type { ComponentProps, ReactNode } from 'react';
@@ -40,8 +41,7 @@ const SUBJECTS = [
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'] as const;
 
 export function ParentHomeScreen() {
-  const router = useRouter();
-  const setMode = useAppModeStore((state) => state.setMode);
+  const [draggingOrder, setDraggingOrder] = useState(false);
   const childQuery = useCurrentChild();
   const childId = childQuery.data?.id;
   const studyItemsQuery = useStudyItems(childId);
@@ -61,22 +61,16 @@ export function ParentHomeScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.flex}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        scrollEnabled={!draggingOrder}
+      >
         <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
             <Text style={styles.title}>부모 홈</Text>
             <Text style={styles.description}>{childQuery.data.name}의 공부를 관리해요.</Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              setMode('child');
-              router.replace('/');
-            }}
-            style={styles.secondaryButton}
-          >
-            <Text style={styles.secondaryButtonText}>아이 화면</Text>
-          </Pressable>
         </View>
 
         <StudyItemForm childId={childQuery.data.id} />
@@ -119,6 +113,9 @@ export function ParentHomeScreen() {
 
         <ParentConfirmationPanel childId={childQuery.data.id} />
         <ManualTasksPanel childId={childQuery.data.id} />
+        <TaskOrderPanel childId={childQuery.data.id} onDragStateChange={setDraggingOrder} />
+        <TaskQuantityPanel childId={childQuery.data.id} />
+        <TaskExclusionPanel childId={childQuery.data.id} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

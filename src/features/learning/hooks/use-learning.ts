@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  excludeDailyTask,
+  updateDailyTaskQuantity,
+  reorderDailyTasks,
   updateStudyItem,
   changeStudyItemStatus,
   saveRestWeekdays,
@@ -45,6 +48,44 @@ export const learningKeys = {
 function useInvalidateLearning() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: learningKeys.all });
+}
+
+export function useExcludeDailyTask() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({
+    mutationFn: excludeDailyTask,
+    retry: false,
+    networkMode: 'always',
+    onSettled: () => {
+      void invalidate().catch(() => {});
+    },
+  });
+}
+
+export function useUpdateDailyTaskQuantity() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({
+    mutationFn: updateDailyTaskQuantity,
+    retry: false,
+    networkMode: 'always',
+    // A slow refetch must not hold the save button in the pending state.
+    onSettled: () => {
+      void invalidate().catch(() => {});
+    },
+  });
+}
+
+export function useReorderDailyTasks() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({
+    mutationFn: reorderDailyTasks,
+    retry: false,
+    networkMode: 'always',
+    // Refetch must not hold the mutation pending (also refresh unknown outcomes).
+    onSettled: () => {
+      void invalidate().catch(() => {});
+    },
+  });
 }
 
 export function useReviewTasks(childId: string) {

@@ -30,6 +30,22 @@ export function StudySessionScreen() {
   }
 
   const task = taskQuery.data;
+  if (task.excluded_for_today)
+    return (
+      <ScreenMessage
+        message="오늘 제외된 공부예요."
+        actionLabel="오늘 공부로"
+        onAction={() => router.replace('/child/today')}
+      />
+    );
+  if (task.quantity_conflict)
+    return (
+      <ScreenMessage
+        message="진도가 바뀌었어요. 부모님과 다시 확인해 주세요."
+        actionLabel="오늘 공부로"
+        onAction={() => router.replace('/child/today')}
+      />
+    );
   if (task.isSuperseded)
     return (
       <ScreenMessage

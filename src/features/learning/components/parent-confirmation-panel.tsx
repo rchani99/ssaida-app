@@ -29,7 +29,9 @@ export function ParentConfirmationPanel({ childId }: { childId: string }) {
   const [drafts, setDrafts] = useState<Record<string, ConfirmationDraft>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const pending = pendingQuery.data ?? [];
+  const pending = (pendingQuery.data ?? []).filter(
+    (task) => !task.excluded_for_today && !task.quantity_conflict,
+  );
   const change = (id: string, value: ConfirmationDraft) =>
     setDrafts((current) => ({ ...current, [id]: { ...current[id], ...value } }));
   const submit = () => {
@@ -193,13 +195,17 @@ export function ParentConfirmationPanel({ childId }: { childId: string }) {
       ))}
       {conflicts.map((task) => (
         <View key={task.id} style={s.card}>
-          <Text style={s.warning}>진도 확인이 필요해요</Text>
+          <Text accessibilityRole="alert" style={s.warning}>
+            {task.quantity_conflict ? '진도 변경으로 다시 확인이 필요해요' : '진도 확인이 필요해요'}
+          </Text>
           <Text style={s.text}>
             {task.name_snapshot} · {task.daily_plans.plan_date} · {task.planned_start_page}~
             {task.planned_end_page}쪽
           </Text>
           <Text style={s.secondary}>
-            앞선 공부 확인 결과와 현재 진도가 달라요. 진행 중인 공부는 변경하지 않았어요.
+            {task.quantity_conflict
+              ? '수정한 분량은 그대로 보관했어요. 진도를 다시 확인하기 전에는 시작할 수 없어요.'
+              : '앞선 공부 확인 결과와 현재 진도가 달라요. 진행 중인 공부는 변경하지 않았어요.'}
           </Text>
         </View>
       ))}

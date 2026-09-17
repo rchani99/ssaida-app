@@ -1,11 +1,13 @@
 import { Tabs } from 'expo-router';
 
 import { colors } from '@/design-system/tokens';
+import { ChildModeButton } from '@/features/auth/components/child-mode-button';
 
 export default function ParentTabsLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerRight: () => <ChildModeButton />,
         headerStyle: { backgroundColor: colors.card },
         headerTintColor: colors.textPrimary,
         tabBarActiveTintColor: colors.primary,

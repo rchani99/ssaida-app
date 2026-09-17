@@ -44,7 +44,7 @@ export function ManualTasksPanel({ childId }: { childId: string }) {
   const busy = add.isPending || reschedule.isPending || skip.isPending;
   const excess =
     (tasks.data ?? [])
-      .filter((task) => task.status !== 'SKIPPED')
+      .filter((task) => !task.excluded_for_today && task.status !== 'SKIPPED')
       .reduce((sum, task) => sum + task.planned_minutes, 0) -
     (plan.data?.target_minutes_snapshot ?? Infinity);
   const submit = () => {
@@ -161,7 +161,7 @@ export function ManualTasksPanel({ childId }: { childId: string }) {
           <Text style={s.secondary}>
             목표 {plan.data.target_minutes_snapshot}분 · 계획{' '}
             {(tasks.data ?? [])
-              .filter((task) => task.status !== 'SKIPPED')
+              .filter((task) => !task.excluded_for_today && task.status !== 'SKIPPED')
               .reduce((sum, task) => sum + task.planned_minutes, 0)}
             분
           </Text>

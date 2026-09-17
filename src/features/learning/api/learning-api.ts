@@ -161,6 +161,126 @@ export async function fetchDailyTasks(dailyPlanId: string): Promise<DailyTask[]>
   return excludeRescheduledSources(data);
 }
 
+export class TaskQuantityError extends Error {
+  constructor(public readonly kind: 'conflict' | 'request' | 'validation') {
+    super('오늘 공부 분량을 저장하지 못했어요.');
+    this.name = 'TaskQuantityError';
+  }
+}
+
+export async function updateDailyTaskQuantity(input: { task: DailyTask; value: number }) {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new TaskQuantityError('request'));
+        controller.abort();
+      }, 15_000);
+    });
+    const request = getSupabaseClient()
+      .rpc('update_daily_task_quantity', {
+        target_daily_task_id: input.task.id,
+        expected_updated_at: input.task.updated_at,
+        new_value: input.value,
+      })
+      .abortSignal(controller.signal);
+    const { error } = await Promise.race([request, timeout]);
+    if (error)
+      throw new TaskQuantityError(
+        error.code === 'PT409' || error.code === '40001'
+          ? 'conflict'
+          : error.code === '22023'
+            ? 'validation'
+            : 'request',
+      );
+  } catch (error) {
+    if (error instanceof TaskQuantityError) throw error;
+    throw new TaskQuantityError('request');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export class TaskExclusionError extends Error {
+  constructor(public readonly kind: 'conflict' | 'request' | 'validation') {
+    super('오늘 제외 결과를 확인하지 못했어요.');
+    this.name = 'TaskExclusionError';
+  }
+}
+
+export async function excludeDailyTask(input: { task: DailyTask }) {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new TaskExclusionError('request'));
+        controller.abort();
+      }, 15_000);
+    });
+    const request = getSupabaseClient()
+      .rpc('exclude_daily_task', {
+        target_daily_task_id: input.task.id,
+        expected_updated_at: input.task.updated_at,
+      })
+      .abortSignal(controller.signal);
+    const { error } = await Promise.race([request, timeout]);
+    if (error)
+      throw new TaskExclusionError(
+        error.code === 'PT409' || error.code === '40001'
+          ? 'conflict'
+          : error.code === '22023'
+            ? 'validation'
+            : 'request',
+      );
+  } catch (error) {
+    if (error instanceof TaskExclusionError) throw error;
+    throw new TaskExclusionError('request');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export class TaskOrderError extends Error {
+  constructor(public readonly kind: 'conflict' | 'request') {
+    super(kind === 'conflict' ? '공부 상태가 변경됐어요.' : '저장 결과를 확인하지 못했어요.');
+    this.name = 'TaskOrderError';
+  }
+}
+
+export async function reorderDailyTasks(input: { planId: string; tasks: DailyTask[] }) {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    // Bound the entire operation, including auth/session waits before fetch starts.
+    // A timeout is an unknown outcome, not proof that the server didn't save.
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new TaskOrderError('request'));
+        controller.abort();
+      }, 15_000);
+    });
+    const request = getSupabaseClient()
+      .rpc('reorder_daily_tasks', {
+        target_daily_plan_id: input.planId,
+        ordered_tasks: input.tasks.map((task) => ({
+          id: task.id,
+          expected_updated_at: task.updated_at,
+          expected_sort_order: task.sort_order,
+        })),
+      })
+      .abortSignal(controller.signal);
+    const { error } = await Promise.race([request, timeout]);
+    if (error) throw new TaskOrderError(error.code === '40001' ? 'conflict' : 'request');
+  } catch (error) {
+    if (error instanceof TaskOrderError) throw error;
+    throw new TaskOrderError('request');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function fetchContinuingTasks(
   childId: string,
   planDate: string,

@@ -78,7 +78,7 @@ export function ChildTodayScreen() {
   }
 
   const tasks = mergeVisibleTasks<DailyTask>(
-    continuingQuery.data ?? [],
+    (continuingQuery.data ?? []).filter((task) => !task.excluded_for_today),
     prioritizeTodayTasks(tasksQuery.data ?? []),
   );
   const totalMinutes = tasks.reduce((sum, task) => sum + task.planned_minutes, 0);
@@ -121,9 +121,13 @@ function TaskCard({ task, onOpen }: { task: DailyTask; onOpen: () => void }) {
   const startTask = useStartDailyTask();
   const isWaiting = task.status === 'CHILD_COMPLETED';
   const isDone = ['PARENT_CONFIRMED', 'PARTIAL'].includes(task.status);
-  const canOpen = ['PLANNED', 'IN_PROGRESS', 'RETRY'].includes(task.status);
+  const canOpen =
+    !task.excluded_for_today &&
+    !task.quantity_conflict &&
+    ['PLANNED', 'IN_PROGRESS', 'RETRY'].includes(task.status);
 
   const handleOpen = () => {
+    if (task.excluded_for_today || task.quantity_conflict) return;
     if (task.status === 'PLANNED' || task.status === 'RETRY') {
       startTask.mutate(task.id, { onSuccess: onOpen });
     } else {
@@ -141,15 +145,17 @@ function TaskCard({ task, onOpen }: { task: DailyTask; onOpen: () => void }) {
             : `약 ${task.planned_minutes}분`}
         </Text>
         <Text style={styles.statusText}>
-          {isWaiting
-            ? '부모님 확인을 기다리고 있어요'
-            : isDone
-              ? '오늘 공부를 마쳤어요'
-              : task.status === 'IN_PROGRESS'
-                ? '공부하는 중이에요'
-                : task.status === 'RETRY'
-                  ? '다시 해볼까요?'
-                  : '시작할 준비가 됐어요'}
+          {task.quantity_conflict
+            ? '진도가 바뀌었어요. 부모님과 다시 확인해 주세요.'
+            : isWaiting
+              ? '부모님 확인을 기다리고 있어요'
+              : isDone
+                ? '오늘 공부를 마쳤어요'
+                : task.status === 'IN_PROGRESS'
+                  ? '공부하는 중이에요'
+                  : task.status === 'RETRY'
+                    ? '다시 해볼까요?'
+                    : '시작할 준비가 됐어요'}
         </Text>
       </View>
       {canOpen && (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 
+import { dashboardTokens as t } from '@/design-system/tokens';
 import { TaskQuantityError } from '@/features/learning/api/learning-api';
 import {
   LearningButton,
@@ -16,8 +17,17 @@ import {
 import { editableTasks, seoulDate } from '@/features/learning/utils/task-order';
 
 import type { DailyTask } from '@/features/learning/types/learning.types';
+import type { ReactNode } from 'react';
 
-export function TaskQuantityPanel({ childId }: { childId: string }) {
+export function TaskQuantityPanel({
+  childId,
+  renderContent,
+  editStyle = false,
+}: {
+  childId: string;
+  editStyle?: boolean;
+  renderContent?: (controls: Map<string, ReactNode>, feedback: ReactNode) => ReactNode;
+}) {
   const [today, setToday] = useState(() => seoulDate());
   useEffect(() => {
     const refresh = () => setToday(seoulDate());
@@ -107,6 +117,122 @@ export function TaskQuantityPanel({ childId }: { childId: string }) {
       },
     );
   };
+  const controls = new Map<string, ReactNode>(
+    rows.map((task) => [
+      task.id,
+      <View
+        key={`quantity-${task.id}`}
+        style={[
+          s.card,
+          editStyle && { paddingVertical: 0, gap: 4, borderBottomWidth: 0, maxWidth: '100%' },
+          editStyle && draft?.task.id === task.id && { width: '100%' },
+        ]}
+      >
+        {!renderContent && <Text style={s.text}>{task.name_snapshot}</Text>}
+        {!renderContent && (
+          <Text style={s.secondary}>
+            {task.item_type === 'WORKBOOK'
+              ? `${task.planned_start_page}~${task.planned_end_page}쪽`
+              : `${task.planned_minutes}분`}
+          </Text>
+        )}
+        {draft?.task.id !== task.id && (
+          <LearningButton
+            label={editStyle ? '분량 수정' : `${task.name_snapshot} 분량 수정`}
+            variant={editStyle ? 'outline' : 'secondary'}
+            compact={editStyle}
+            disabled={mutation.isPending || tasks.isFetching}
+            onPress={() => {
+              recoveryVersion.current++;
+              setDraft({ task, date: today });
+              setValue(
+                String(
+                  task.item_type === 'WORKBOOK' ? task.planned_end_page : task.planned_minutes,
+                ),
+              );
+              setMessage('');
+            }}
+          />
+        )}
+        {draft?.task.id === task.id && (
+          <View
+            style={[
+              s.card,
+              editStyle && {
+                paddingVertical: t.spacing[4],
+                gap: t.spacing[8],
+                borderBottomWidth: 0,
+                borderTopWidth: 1,
+                borderTopColor: t.colors.dividerSoft,
+              },
+            ]}
+          >
+            {!editStyle && <Text style={s.text}>{draft.task.name_snapshot} · 오늘 분량 수정</Text>}
+            {draft.task.item_type === 'WORKBOOK' && (
+              <Text style={s.secondary}>
+                {draft.task.planned_start_page}쪽부터 변경할 수 있어요
+              </Text>
+            )}
+            <LearningField
+              label={draft.task.item_type === 'WORKBOOK' ? '오늘 끝 페이지' : '오늘 공부 시간 (분)'}
+              numeric
+              value={value}
+              onChangeText={setValue}
+              disabled={mutation.isPending || stale}
+            />
+            {stale && (
+              <Text accessibilityRole="alert" style={s.warning}>
+                공부 상태가 바뀌었어요. 최신 목록을 다시 불러와 주세요.
+              </Text>
+            )}
+            <View
+              style={[
+                { gap: s.card.gap },
+                editStyle && { flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing[8] },
+              ]}
+            >
+              <LearningButton
+                label={editStyle ? '취소' : '분량 수정 취소'}
+                variant={editStyle ? 'outline' : 'secondary'}
+                compact={editStyle}
+                disabled={mutation.isPending}
+                onPress={() => setDraft(null)}
+              />
+              <LearningButton
+                label={editStyle ? '저장' : '분량 저장'}
+                variant={editStyle ? 'primary' : 'secondary'}
+                compact={editStyle}
+                onPress={save}
+                disabled={mutation.isPending || stale || tasks.isFetching}
+              />
+            </View>
+          </View>
+        )}
+      </View>,
+    ]),
+  );
+  const feedback = (
+    <>
+      {stale && !current && (
+        <Text accessibilityRole="alert" style={s.warning}>
+          공부 상태가 바뀌었어요. 최신 목록을 다시 불러와 주세요.
+        </Text>
+      )}
+      {message && (
+        <Text accessibilityRole="alert" style={s.secondary}>
+          {message}
+        </Text>
+      )}
+      {(message || stale) && (
+        <LearningButton
+          label="최신 분량 불러오기"
+          disabled={mutation.isPending}
+          onPress={() => void reload()}
+        />
+      )}
+    </>
+  );
+  if (renderContent) return renderContent(controls, feedback);
   return (
     <View style={s.panel}>
       <Text style={s.title}>오늘 공부 분량</Text>
@@ -126,87 +252,10 @@ export function TaskQuantityPanel({ childId }: { childId: string }) {
       ) : (
         <>
           {rows.length === 0 && <Text style={s.secondary}>분량을 바꿀 수 있는 공부가 없어요.</Text>}
-          {rows.map((task) => (
-            <View key={task.id} style={s.card}>
-              <Text style={s.text}>{task.name_snapshot}</Text>
-              <Text style={s.secondary}>
-                {task.item_type === 'WORKBOOK'
-                  ? `${task.planned_start_page}~${task.planned_end_page}쪽`
-                  : `${task.planned_minutes}분`}
-              </Text>
-              {draft?.task.id !== task.id && (
-                <LearningButton
-                  label={`${task.name_snapshot} 분량 수정`}
-                  disabled={mutation.isPending || tasks.isFetching}
-                  onPress={() => {
-                    recoveryVersion.current++;
-                    setDraft({ task, date: today });
-                    setValue(
-                      String(
-                        task.item_type === 'WORKBOOK'
-                          ? task.planned_end_page
-                          : task.planned_minutes,
-                      ),
-                    );
-                    setMessage('');
-                  }}
-                />
-              )}
-              {draft?.task.id === task.id && (
-                <View style={s.card}>
-                  <Text style={s.text}>{draft.task.name_snapshot} · 오늘 분량 수정</Text>
-                  {draft.task.item_type === 'WORKBOOK' && (
-                    <Text style={s.secondary}>
-                      시작 {draft.task.planned_start_page}쪽 (변경할 수 없어요)
-                    </Text>
-                  )}
-                  <LearningField
-                    label={
-                      draft.task.item_type === 'WORKBOOK' ? '오늘 끝 페이지' : '오늘 공부 시간 (분)'
-                    }
-                    numeric
-                    value={value}
-                    onChangeText={setValue}
-                    disabled={mutation.isPending || stale}
-                  />
-                  {stale && (
-                    <Text accessibilityRole="alert" style={s.warning}>
-                      공부 상태가 바뀌었어요. 최신 목록을 다시 불러와 주세요.
-                    </Text>
-                  )}
-                  <LearningButton
-                    label="분량 저장"
-                    onPress={save}
-                    disabled={mutation.isPending || stale || tasks.isFetching}
-                  />
-                  <LearningButton
-                    label="분량 수정 취소"
-                    disabled={mutation.isPending}
-                    onPress={() => setDraft(null)}
-                  />
-                </View>
-              )}
-            </View>
-          ))}
+          {Array.from(controls.values())}
         </>
       )}
-      {stale && !current && (
-        <Text accessibilityRole="alert" style={s.warning}>
-          공부 상태가 바뀌었어요. 최신 목록을 다시 불러와 주세요.
-        </Text>
-      )}
-      {message && (
-        <Text accessibilityRole="alert" style={s.secondary}>
-          {message}
-        </Text>
-      )}
-      {(message || stale) && (
-        <LearningButton
-          label="최신 분량 불러오기"
-          disabled={mutation.isPending}
-          onPress={() => void reload()}
-        />
-      )}
+      {feedback}
     </View>
   );
 }

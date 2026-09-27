@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { MutationObserver, QueryClient, QueryObserver } from '@tanstack/react-query';
 import ts from 'typescript';
 
+import { uiMocks } from './ui-regression-mocks.mjs';
+
 function load(path, mocks, timer = setTimeout) {
   const module = { exports: {} };
   const output = ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), {
@@ -11,6 +13,7 @@ function load(path, mocks, timer = setTimeout) {
   }).outputText;
   new Function('require', 'module', 'exports', '__DEV__', 'setTimeout', output)(
     (id) => {
+      mocks = uiMocks(mocks);
       if (!(id in mocks)) throw new Error(id);
       return mocks[id];
     },
@@ -159,6 +162,11 @@ let rows = [
   make('A'),
   make('B'),
   make('Excluded', { excluded_for_today: true }),
+  make('Progress resolved', {
+    item_type: 'WORKBOOK',
+    excluded_for_today: true,
+    exclusion_reason: 'CONFIRMED_PROGRESS',
+  }),
   make('Conflict', { quantity_conflict: 'GAP' }),
   ...['IN_PROGRESS', 'CHILD_COMPLETED', 'RETRY', 'PARENT_CONFIRMED', 'PARTIAL', 'SKIPPED'].map(
     (status) => make(status, { status }),
@@ -204,7 +212,7 @@ const mocks = {
   '@/features/learning/utils/task-order': { ...rules, seoulDate: () => date },
   '@/features/learning/components/learning-controls': {
     LearningButton: 'Button',
-    learningStyles: {},
+    learningStyles: { card: { gap: 8 } },
   },
   '@/features/learning/hooks/use-learning': {
     useDailyPlan: () => ({ data: { id: 'plan' } }),
@@ -248,6 +256,7 @@ assert.equal(
   2,
 );
 assert.ok(text('오늘 제외됨'));
+assert.ok(text('진도에 맞춰 제외됨 · 이미 확인된 범위'));
 button('A 오늘만 제외').onPress();
 button('제외 취소').onPress();
 assert.equal(saves, 0);
@@ -408,7 +417,7 @@ console.log('PASS exclusion cancels already scheduled unfinished reminder');
 const childScreen = load('src/features/learning/screens/child-today-screen.tsx', {
   ...mocks,
   'expo-router': { useRouter: () => ({ push() {} }) },
-  '@/design-system/tokens': { colors: {}, radius: {}, sizing: {}, spacing: {} },
+  '@/design-system/tokens': load('src/design-system/tokens.ts', {}),
   '@/shared/components/screen-message': { ScreenMessage: 'Message' },
   '@/shared/hooks/use-today': { useToday: () => '2026-09-17' },
   '@/features/learning/utils/exception-tasks': exception,
@@ -422,6 +431,7 @@ const childScreen = load('src/features/learning/screens/child-today-screen.tsx',
     useDailyPlan: () => ({ data: { id: 'plan', target_minutes_snapshot: 60 } }),
     useDailyTasks: () => ({ data: [excluded, make('normal', { planned_minutes: 5 })] }),
     useContinuingTasks: () => ({ data: [] }),
+    useStartDailyTask: () => ({ mutate() {} }),
   },
 });
 slots.length = 0;

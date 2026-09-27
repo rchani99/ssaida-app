@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 
+import { dashboardTokens as t } from '@/design-system/tokens';
 import { TaskExclusionError } from '@/features/learning/api/learning-api';
 import {
   LearningButton,
@@ -14,8 +15,17 @@ import {
 import { seoulDate } from '@/features/learning/utils/task-order';
 
 import type { DailyTask } from '@/features/learning/types/learning.types';
+import type { ReactNode } from 'react';
 
-export function TaskExclusionPanel({ childId }: { childId: string }) {
+export function TaskExclusionPanel({
+  childId,
+  renderContent,
+  editStyle = false,
+}: {
+  childId: string;
+  editStyle?: boolean;
+  renderContent?: (controls: Map<string, ReactNode>, feedback: ReactNode) => ReactNode;
+}) {
   const [today, setToday] = useState(() => seoulDate());
   useEffect(() => {
     const refresh = () => setToday(seoulDate());
@@ -88,55 +98,83 @@ export function TaskExclusionPanel({ childId }: { childId: string }) {
       },
     );
   };
-  return (
-    <View style={s.panel}>
-      <Text style={s.title}>오늘만 제외</Text>
-      <Text style={s.secondary}>
-        아직 시작하지 않은 자동 공부만 오늘 계획에서 제외해요. 등록한 공부와 기록은 유지돼요.
-      </Text>
-      {plan.isLoading || tasks.isLoading ? (
-        <Text>공부 목록을 불러오고 있어요.</Text>
-      ) : plan.isError || tasks.isError ? (
-        <Text style={s.error}>공부 목록을 불러오지 못했어요.</Text>
-      ) : (
-        <>
-          {rows.length === 0 && (
-            <Text style={s.secondary}>오늘 제외할 수 있는 자동 공부가 없어요.</Text>
-          )}
-          {rows.map((task) => (
-            <View key={task.id} style={s.card}>
-              <Text style={s.text}>{task.name_snapshot}</Text>
-              {task.excluded_for_today ? (
-                <Text style={s.secondary}>오늘 제외됨</Text>
-              ) : draft?.task.id === task.id ? (
-                <View style={s.card}>
-                  <Text style={s.text}>이 공부를 오늘만 제외할까요?</Text>
-                  <LearningButton
-                    label="제외 취소"
-                    disabled={mutation.isPending}
-                    onPress={() => setDraft(null)}
-                  />
-                  <LearningButton
-                    label="오늘만 제외 확인"
-                    disabled={mutation.isPending || tasks.isFetching}
-                    onPress={save}
-                  />
-                </View>
-              ) : (
-                <LearningButton
-                  label={task.name_snapshot + ' 오늘만 제외'}
-                  disabled={mutation.isPending || tasks.isFetching}
-                  onPress={() => {
-                    recoveryVersion.current++;
-                    setDraft({ task, date: today });
-                    setMessage('');
-                  }}
-                />
-              )}
+  const controls = new Map<string, ReactNode>(
+    rows.map((task) => [
+      task.id,
+      <View
+        key={`exclusion-${task.id}`}
+        style={[
+          s.card,
+          editStyle && {
+            paddingVertical: 0,
+            gap: t.spacing[4],
+            borderBottomWidth: 0,
+            maxWidth: '100%',
+          },
+          editStyle && draft?.task.id === task.id && { width: '100%' },
+        ]}
+      >
+        {!renderContent && <Text style={s.text}>{task.name_snapshot}</Text>}
+        {task.excluded_for_today ? (
+          <Text style={s.secondary}>
+            {task.exclusion_reason === 'CONFIRMED_PROGRESS'
+              ? '진도에 맞춰 제외됨 · 이미 확인된 범위'
+              : '오늘 제외됨'}
+          </Text>
+        ) : draft?.task.id === task.id ? (
+          <View
+            style={[
+              s.card,
+              editStyle && {
+                paddingVertical: t.spacing[4],
+                gap: t.spacing[8],
+                borderBottomWidth: 0,
+                borderTopWidth: 1,
+                borderTopColor: t.colors.dividerSoft,
+              },
+            ]}
+          >
+            <Text style={s.text}>이 공부를 오늘만 제외할까요?</Text>
+            <View
+              style={[
+                { gap: s.card.gap },
+                editStyle && { flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing[8] },
+              ]}
+            >
+              <LearningButton
+                label={editStyle ? '취소' : '제외 취소'}
+                variant={editStyle ? 'outline' : 'secondary'}
+                compact={editStyle}
+                disabled={mutation.isPending}
+                onPress={() => setDraft(null)}
+              />
+              <LearningButton
+                label={editStyle ? '확인' : '오늘만 제외 확인'}
+                variant={editStyle ? 'primary' : 'secondary'}
+                compact={editStyle}
+                disabled={mutation.isPending || tasks.isFetching}
+                onPress={save}
+              />
             </View>
-          ))}
-        </>
-      )}
+          </View>
+        ) : (
+          <LearningButton
+            label={editStyle ? '오늘만 제외' : task.name_snapshot + ' 오늘만 제외'}
+            variant={editStyle ? 'neutral' : 'secondary'}
+            compact={editStyle}
+            disabled={mutation.isPending || tasks.isFetching}
+            onPress={() => {
+              recoveryVersion.current++;
+              setDraft({ task, date: today });
+              setMessage('');
+            }}
+          />
+        )}
+      </View>,
+    ]),
+  );
+  const feedback = (
+    <>
       {message && (
         <Text accessibilityRole="alert" style={s.secondary}>
           {message}
@@ -152,6 +190,28 @@ export function TaskExclusionPanel({ childId }: { childId: string }) {
           }}
         />
       )}
+    </>
+  );
+  if (renderContent) return renderContent(controls, feedback);
+  return (
+    <View style={s.panel}>
+      <Text style={s.title}>오늘만 제외</Text>
+      <Text style={s.secondary}>
+        아직 시작하지 않은 자동 공부만 오늘 계획에서 제외해요. 등록한 공부와 기록은 유지돼요.
+      </Text>
+      {plan.isLoading || tasks.isLoading ? (
+        <Text>공부 목록을 불러오고 있어요.</Text>
+      ) : plan.isError || tasks.isError ? (
+        <Text style={s.error}>공부 목록을 불러오지 못했어요.</Text>
+      ) : (
+        <>
+          {rows.length === 0 && (
+            <Text style={s.secondary}>오늘 제외할 수 있는 자동 공부가 없어요.</Text>
+          )}
+          {Array.from(controls.values())}
+        </>
+      )}
+      {feedback}
     </View>
   );
 }

@@ -7,6 +7,11 @@ import {
   learningStyles as s,
 } from '@/features/learning/components/learning-controls';
 import {
+  ParentReviewActions,
+  ParentReviewConfirm,
+} from '@/features/learning/components/parent-review-actions';
+import { parentReviewStyles } from '@/features/learning/components/parent-review-styles';
+import {
   useAddManualDailyTask,
   useDailyPlan,
   useDailyTasks,
@@ -18,7 +23,17 @@ import { useToday } from '@/shared/hooks/use-today';
 
 import type { DailyTaskWithPlan, ManualTaskInput } from '@/features/learning/types/learning.types';
 
-export function ManualTasksPanel({ childId }: { childId: string }) {
+export function ManualTasksPanel({
+  childId,
+  mode = 'all',
+  showList = false,
+  reviewStyle = false,
+}: {
+  childId: string;
+  mode?: 'all' | 'add' | 'unresolved';
+  showList?: boolean;
+  reviewStyle?: boolean;
+}) {
   const today = useToday();
   const plan = useDailyPlan(childId, today);
   const tasks = useDailyTasks(plan.data?.id);
@@ -38,6 +53,7 @@ export function ManualTasksPanel({ childId }: { childId: string }) {
   const [action, setAction] = useState<{ task: DailyTaskWithPlan; kind: 'move' | 'skip' } | null>(
     null,
   );
+  const [choices, setChoices] = useState<Record<string, 'move' | 'skip'>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showExcess, setShowExcess] = useState(false);
@@ -100,13 +116,13 @@ export function ManualTasksPanel({ childId }: { childId: string }) {
       },
     );
   };
-  const perform = () => {
-    if (!action || busy || submitting.current) return;
+  const perform = (selection = action) => {
+    if (!selection || busy || submitting.current) return;
     submitting.current = true;
     setError(null);
-    if (action.kind === 'move')
+    if (selection.kind === 'move')
       reschedule.mutate(
-        { taskId: action.task.id, date: today },
+        { taskId: selection.task.id, date: today },
         {
           onSettled: () => {
             submitting.current = false;
@@ -124,7 +140,7 @@ export function ManualTasksPanel({ childId }: { childId: string }) {
         },
       );
     else
-      skip.mutate(action.task.id, {
+      skip.mutate(selection.task.id, {
         onSettled: () => {
           submitting.current = false;
         },
@@ -140,193 +156,262 @@ export function ManualTasksPanel({ childId }: { childId: string }) {
       });
   };
   return (
-    <View style={s.panel}>
-      <Text style={s.title}>오늘 계획</Text>
-      {plan.data?.day_type === 'REST' && (
-        <Text style={s.secondary}>쉬는 날에도 필요한 숙제는 추가할 수 있어요.</Text>
-      )}
-      {plan.isError || tasks.isError ? (
+    <View
+      style={[
+        s.panel,
+        mode === 'unresolved' && { borderWidth: 0 },
+        reviewStyle && parentReviewStyles.panel,
+      ]}
+    >
+      {mode !== 'unresolved' && (
         <>
-          <Text style={s.error}>오늘 공부량을 불러오지 못했어요.</Text>
-          <LearningButton
-            label="오늘 계획 다시 불러오기"
-            onPress={() => {
-              void plan.refetch();
-              void tasks.refetch();
-            }}
-          />
-        </>
-      ) : (
-        plan.data && (
-          <Text style={s.secondary}>
-            목표 {plan.data.target_minutes_snapshot}분 · 계획{' '}
-            {(tasks.data ?? [])
-              .filter((task) => !task.excluded_for_today && task.status !== 'SKIPPED')
-              .reduce((sum, task) => sum + task.planned_minutes, 0)}
-            분
-          </Text>
-        )
-      )}
-      <LearningButton
-        label="+ 오늘 할 일 추가"
-        disabled={busy}
-        onPress={() => {
-          setForm(!form);
-          setError(null);
-        }}
-      />
-      {form && (
-        <View style={s.card}>
-          <View style={s.row}>
-            {(['WORKBOOK', 'ACTIVITY'] as const).map((type) => (
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityLabel={`오늘 할 일 ${type === 'WORKBOOK' ? '문제집' : '활동'}`}
-                accessibilityState={{ selected: itemType === type }}
-                key={type}
-                disabled={busy}
-                onPress={() => {
-                  if (type === itemType) return;
-                  setItemType(type);
-                  setStart('1');
-                  setEnd('5');
-                  setError(null);
-                }}
-                style={[s.choice, itemType === type && s.selected]}
-              >
-                <Text style={s.text}>{type === 'WORKBOOK' ? '문제집' : '활동'}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <LearningField
-            label="오늘 할 일 이름"
-            value={name}
-            onChangeText={setName}
-            disabled={busy}
-          />
-          <Text style={s.secondary}>과목 (선택)</Text>
-          <View style={s.row}>
-            {(
-              [
-                [null, '선택 안 함'],
-                ['KOREAN', '국어'],
-                ['MATH', '수학'],
-                ['ENGLISH', '영어'],
-                ['SCIENCE', '과학'],
-                ['SOCIAL', '사회'],
-                ['OTHER', '기타'],
-              ] as const
-            ).map(([code, label]) => (
-              <Pressable
-                key={label}
-                accessibilityRole="radio"
-                accessibilityLabel={`오늘 할 일 과목 ${label}`}
-                accessibilityState={{ selected: subject === code }}
-                disabled={busy}
-                onPress={() => setSubject(code)}
-                style={[s.choice, subject === code && s.selected]}
-              >
-                <Text style={s.text}>{label}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <LearningField
-            label="오늘 할 일 예상시간 (분)"
-            value={minutes}
-            onChangeText={setMinutes}
-            numeric
-            disabled={busy}
-          />
-          {itemType === 'WORKBOOK' && (
+          <Text style={reviewStyle ? parentReviewStyles.title : s.title}>오늘 계획</Text>
+          {plan.data?.day_type === 'REST' && (
+            <Text style={reviewStyle ? parentReviewStyles.secondary : s.secondary}>
+              쉬는 날에도 필요한 숙제는 추가할 수 있어요.
+            </Text>
+          )}
+          {plan.isError || tasks.isError ? (
             <>
-              <LearningField
-                label="오늘 할 일 시작 쪽"
-                value={start}
-                onChangeText={setStart}
-                numeric
-                disabled={busy}
-              />
-              <LearningField
-                label="오늘 할 일 마지막 쪽"
-                value={end}
-                onChangeText={setEnd}
-                numeric
-                disabled={busy}
+              <Text style={s.error}>오늘 공부량을 불러오지 못했어요.</Text>
+              <LearningButton
+                label="오늘 계획 다시 불러오기"
+                onPress={() => {
+                  void plan.refetch();
+                  void tasks.refetch();
+                }}
               />
             </>
+          ) : (
+            plan.data && (
+              <Text style={reviewStyle ? parentReviewStyles.secondary : s.secondary}>
+                목표 {plan.data.target_minutes_snapshot}분 · 계획{' '}
+                {(tasks.data ?? [])
+                  .filter((task) => !task.excluded_for_today && task.status !== 'SKIPPED')
+                  .reduce((sum, task) => sum + task.planned_minutes, 0)}
+                분
+              </Text>
+            )
           )}
-          <LearningButton label="오늘 할 일 저장" disabled={busy} onPress={submit} />
-        </View>
-      )}
-      {showExcess && excess > 0 && (
-        <View style={s.card}>
-          <Text style={s.warning}>오늘 공부량이 목표보다 약 {excess}분 많아요.</Text>
-          <LearningButton label="그대로 하기" onPress={() => setShowExcess(false)} />
-        </View>
-      )}
-      {unresolved.isLoading ? (
-        <ActivityIndicator />
-      ) : unresolved.isError ? (
-        <>
-          <Text style={s.error}>지난 공부를 불러오지 못했어요.</Text>
           <LearningButton
-            label="지난 공부 다시 불러오기"
-            onPress={() => void unresolved.refetch()}
+            label="+ 오늘 할 일 추가"
+            variant={reviewStyle ? 'primary' : 'secondary'}
+            disabled={busy}
+            onPress={() => {
+              setForm(!form);
+              setError(null);
+            }}
           />
-        </>
-      ) : (
-        <LearningButton
-          label={`지난 공부 ${unresolved.data?.length ?? 0}개 정리하기`}
-          onPress={() => setExpanded(!expanded)}
-        />
-      )}
-      {expanded &&
-        (unresolved.data ?? []).map((task) => (
-          <View key={task.id} style={s.card}>
-            <Text style={s.text}>{task.name_snapshot}</Text>
-            <Text style={s.secondary}>
-              {task.daily_plans.plan_date} ·{' '}
-              {task.item_type === 'WORKBOOK'
-                ? `${task.planned_start_page}~${task.planned_end_page}쪽 · `
-                : ''}
-              {task.planned_minutes}분 ·{' '}
-              {task.status === 'IN_PROGRESS'
-                ? '공부하는 중이에요'
-                : task.status === 'RETRY'
-                  ? '다시 해야 해요'
-                  : '아직 시작하지 않았어요'}
-            </Text>
-            <View style={s.row}>
-              <LearningButton
-                label={`${task.name_snapshot} 오늘에 추가`}
-                disabled={busy}
-                onPress={() => setAction({ task, kind: 'move' })}
-              />
-              <LearningButton
-                label={`${task.name_snapshot} 이번에는 넘기기`}
-                disabled={busy}
-                onPress={() => setAction({ task, kind: 'skip' })}
-              />
-            </View>
-            {action?.task.id === task.id && (
-              <View style={s.card} accessibilityViewIsModal>
-                <Text style={s.text}>{action.task.name_snapshot}</Text>
-                <Text style={s.warning}>
-                  {action.task.status === 'IN_PROGRESS' ? '진행 중인 공부예요. ' : ''}
-                  {action.kind === 'move' ? '오늘로 옮길까요?' : '이번에는 넘길까요?'}
-                </Text>
-                <View style={s.row}>
-                  <LearningButton label="취소" disabled={busy} onPress={() => setAction(null)} />
-                  <LearningButton
-                    label={action.kind === 'move' ? '오늘로 옮기기 확인' : '넘기기 확인'}
+          {form && (
+            <View style={[s.card, reviewStyle && parentReviewStyles.card]}>
+              <View style={s.row}>
+                {(['WORKBOOK', 'ACTIVITY'] as const).map((type) => (
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityLabel={`오늘 할 일 ${type === 'WORKBOOK' ? '문제집' : '활동'}`}
+                    accessibilityState={{ selected: itemType === type }}
+                    key={type}
                     disabled={busy}
-                    onPress={perform}
-                  />
-                </View>
+                    onPress={() => {
+                      if (type === itemType) return;
+                      setItemType(type);
+                      setStart('1');
+                      setEnd('5');
+                      setError(null);
+                    }}
+                    style={[s.choice, itemType === type && s.selected]}
+                  >
+                    <Text style={s.text}>{type === 'WORKBOOK' ? '문제집' : '활동'}</Text>
+                  </Pressable>
+                ))}
               </View>
-            )}
-          </View>
-        ))}
+              <LearningField
+                label="오늘 할 일 이름"
+                value={name}
+                onChangeText={setName}
+                disabled={busy}
+              />
+              <Text style={reviewStyle ? parentReviewStyles.secondary : s.secondary}>
+                과목 (선택)
+              </Text>
+              <View style={s.row}>
+                {(
+                  [
+                    [null, '선택 안 함'],
+                    ['KOREAN', '국어'],
+                    ['MATH', '수학'],
+                    ['ENGLISH', '영어'],
+                    ['SCIENCE', '과학'],
+                    ['SOCIAL', '사회'],
+                    ['OTHER', '기타'],
+                  ] as const
+                ).map(([code, label]) => (
+                  <Pressable
+                    key={label}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`오늘 할 일 과목 ${label}`}
+                    accessibilityState={{ selected: subject === code }}
+                    disabled={busy}
+                    onPress={() => setSubject(code)}
+                    style={[s.choice, subject === code && s.selected]}
+                  >
+                    <Text style={s.text}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <LearningField
+                label="오늘 할 일 예상시간 (분)"
+                value={minutes}
+                onChangeText={setMinutes}
+                numeric
+                disabled={busy}
+              />
+              {itemType === 'WORKBOOK' && (
+                <>
+                  <LearningField
+                    label="오늘 할 일 시작 쪽"
+                    value={start}
+                    onChangeText={setStart}
+                    numeric
+                    disabled={busy}
+                  />
+                  <LearningField
+                    label="오늘 할 일 마지막 쪽"
+                    value={end}
+                    onChangeText={setEnd}
+                    numeric
+                    disabled={busy}
+                  />
+                </>
+              )}
+              <LearningButton label="오늘 할 일 저장" disabled={busy} onPress={submit} />
+            </View>
+          )}
+          {showExcess && excess > 0 && (
+            <View style={[s.card, reviewStyle && parentReviewStyles.card]}>
+              <Text style={s.warning}>오늘 공부량이 목표보다 약 {excess}분 많아요.</Text>
+              <LearningButton label="그대로 하기" onPress={() => setShowExcess(false)} />
+            </View>
+          )}
+        </>
+      )}
+      {mode !== 'add' && (
+        <>
+          {unresolved.isLoading ? (
+            <ActivityIndicator />
+          ) : unresolved.isError ? (
+            <>
+              <Text style={s.error}>지난 공부를 불러오지 못했어요.</Text>
+              <LearningButton
+                label="지난 공부 다시 불러오기"
+                onPress={() => void unresolved.refetch()}
+              />
+            </>
+          ) : showList ? (
+            <Text
+              accessibilityRole={reviewStyle && unresolved.data?.length ? 'header' : undefined}
+              style={
+                reviewStyle
+                  ? unresolved.data?.length
+                    ? parentReviewStyles.title
+                    : parentReviewStyles.secondary
+                  : s.secondary
+              }
+            >
+              {unresolved.data?.length
+                ? `정리할 지난 공부 ${unresolved.data.length}개`
+                : '정리할 지난 공부가 없어요.'}
+            </Text>
+          ) : (
+            <LearningButton
+              label={`지난 공부 ${unresolved.data?.length ?? 0}개 정리하기`}
+              onPress={() => setExpanded(!expanded)}
+            />
+          )}
+          {(showList || expanded) &&
+            (unresolved.data ?? []).map((task) => (
+              <View key={task.id} style={[s.card, reviewStyle && parentReviewStyles.card]}>
+                <Text style={s.text}>{task.name_snapshot}</Text>
+                <Text style={reviewStyle ? parentReviewStyles.secondary : s.secondary}>
+                  {task.daily_plans.plan_date} ·{' '}
+                  {task.item_type === 'WORKBOOK'
+                    ? `${task.planned_start_page}~${task.planned_end_page}쪽 · `
+                    : ''}
+                  {task.planned_minutes}분 ·{' '}
+                  {task.status === 'IN_PROGRESS'
+                    ? '공부하는 중이에요'
+                    : task.status === 'RETRY'
+                      ? '다시 해야 해요'
+                      : '아직 시작하지 않았어요'}
+                </Text>
+                {reviewStyle ? (
+                  <ParentReviewActions
+                    label={`${task.name_snapshot} 처리 방법`}
+                    disabled={busy}
+                    actions={[
+                      {
+                        label: '오늘에 추가',
+                        selected: (choices[task.id] ?? 'move') === 'move',
+                        onPress: () =>
+                          setChoices((previous) => ({ ...previous, [task.id]: 'move' })),
+                      },
+                      {
+                        label: '이번엔 넘기기',
+                        selected: choices[task.id] === 'skip',
+                        onPress: () =>
+                          setChoices((previous) => ({ ...previous, [task.id]: 'skip' })),
+                      },
+                    ]}
+                  />
+                ) : (
+                  <View style={s.row}>
+                    <LearningButton
+                      label="오늘에 추가"
+                      disabled={busy}
+                      onPress={() => setAction({ task, kind: 'move' })}
+                    />
+                    <LearningButton
+                      label="이번엔 넘기기"
+                      disabled={busy}
+                      onPress={() => setAction({ task, kind: 'skip' })}
+                    />
+                  </View>
+                )}
+                {reviewStyle && (
+                  <ParentReviewConfirm
+                    label={`${task.name_snapshot} 확인`}
+                    disabled={busy}
+                    onPress={() => perform({ task, kind: choices[task.id] ?? 'move' })}
+                  />
+                )}
+                {!reviewStyle && action?.task.id === task.id && (
+                  <View
+                    style={[s.card, reviewStyle && parentReviewStyles.card]}
+                    accessibilityViewIsModal
+                  >
+                    <Text style={s.text}>{action.task.name_snapshot}</Text>
+                    <Text style={s.warning}>
+                      {action.task.status === 'IN_PROGRESS' ? '진행 중인 공부예요. ' : ''}
+                      {action.kind === 'move' ? '오늘로 옮길까요?' : '이번에는 넘길까요?'}
+                    </Text>
+                    <View style={s.row}>
+                      <LearningButton
+                        label="취소"
+                        disabled={busy}
+                        onPress={() => setAction(null)}
+                      />
+                      <LearningButton
+                        label={action.kind === 'move' ? '오늘로 옮기기 확인' : '넘기기 확인'}
+                        disabled={busy}
+                        onPress={() => perform()}
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+            ))}
+        </>
+      )}
       {error && (
         <Text accessibilityRole="alert" style={s.error}>
           {error}

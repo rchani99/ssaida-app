@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 
 import ts from 'typescript';
 
+import { uiMocks } from './ui-regression-mocks.mjs';
+
 const jsx = (type, props) => ({ type, props });
 const common = {
   react: { useState: (v) => [v, () => {}] },
@@ -13,7 +15,7 @@ const common = {
     Pressable: 'Pressable',
     StyleSheet: { create: (v) => v },
   },
-  '@/design-system/tokens': { colors: {}, radius: {}, sizing: {}, spacing: {} },
+  '@/design-system/tokens': load('src/design-system/tokens.ts'),
   '@/shared/components/screen-message': { ScreenMessage: 'Message' },
   'expo-router': {
     useRouter: () => ({ replace() {} }),
@@ -36,6 +38,7 @@ function load(path, mocks = {}, expose = false) {
     }).outputText,
   )(
     (id) => {
+      mocks = uiMocks(mocks);
       if (!(id in mocks)) throw new Error(id);
       return mocks[id];
     },
@@ -64,6 +67,9 @@ const hooks = {
 };
 const mocks = {
   ...common,
+  '@/features/learning/components/quantity-conflict-resolution': {
+    QuantityConflictResolution: 'Resolution',
+  },
   '@/features/learning/hooks/use-learning': hooks,
   '@/features/learning/utils/exception-tasks': rules,
   '@/features/learning/components/learning-controls': {
@@ -98,7 +104,12 @@ for (const conflict of ['GAP', 'PARTIAL_OVERLAP', 'FULL_OVERLAP']) {
         throw new Error('Conflict opened');
       },
     });
-    assert.ok(!nodes(tree).some((n) => n.type === 'Pressable'));
+    assert.ok(
+      nodes(tree)
+        .filter((n) => n.type === 'Pressable')
+        .every((n) => n.props.disabled),
+    );
+    assert.ok(!nodes(tree).some((n) => n.props?.accessibilityRole === 'button'));
     assert.ok(
       nodes(tree).some(
         (n) => n.props?.children === '진도가 바뀌었어요. 부모님과 다시 확인해 주세요.',

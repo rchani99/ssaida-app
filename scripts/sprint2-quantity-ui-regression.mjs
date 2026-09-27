@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { MutationObserver, QueryClient, QueryObserver } from '@tanstack/react-query';
 import ts from 'typescript';
 
+import { uiMocks } from './ui-regression-mocks.mjs';
+
 function load(path, mocks, timer = setTimeout) {
   const module = { exports: {} };
   const output = ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), {
@@ -11,6 +13,7 @@ function load(path, mocks, timer = setTimeout) {
   }).outputText;
   new Function('require', 'module', 'exports', '__DEV__', 'setTimeout', output)(
     (id) => {
+      mocks = uiMocks(mocks);
       if (!(id in mocks)) throw new Error(id);
       return mocks[id];
     },
@@ -198,7 +201,7 @@ const panel = load('src/features/learning/components/task-quantity-panel.tsx', {
   '@/features/learning/components/learning-controls': {
     LearningButton: 'Button',
     LearningField: 'Field',
-    learningStyles: {},
+    learningStyles: { card: { gap: 8 } },
   },
   '@/features/learning/hooks/use-learning': {
     useDailyPlan: () => ({ data: { id: 'plan' }, refetch: async () => ({ data: { id: 'plan' } }) }),
@@ -245,7 +248,7 @@ assert.equal(
   2,
 );
 button('Workbook 분량 수정').onPress();
-assert.ok(text('시작 6쪽 (변경할 수 없어요)'));
+assert.ok(text('6쪽부터 변경할 수 있어요'));
 assert.equal(nodes(render()).filter((n) => n.type === 'Field').length, 1);
 const cardFor = (name) =>
   nodes(render()).find(

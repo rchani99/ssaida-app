@@ -24,7 +24,7 @@ export function NotificationRouting() {
     const destination = tapDestination(tap, session.user.id, child.data.id, mode);
     clearTap();
     if (!destination) return;
-    if (destination === 'parent') router.replace('/parent/home');
+    if (destination === 'parent') router.replace('/parent-review?tab=pending');
     else {
       if (destination === 'pin') requestGate();
       else useAppModeStore.getState().setMode('child');

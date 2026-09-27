@@ -1,10 +1,12 @@
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing } from '@/design-system/tokens';
+import { dashboardIconProps } from '@/design-system/icons';
+import { colors, dashboardTokens, spacing } from '@/design-system/tokens';
 import { useAppModeStore } from '@/store/app-mode.store';
 
-export function ChildModeButton() {
+export function ChildModeButton({ dashboard = false }: { dashboard?: boolean } = {}) {
   const router = useRouter();
   const setMode = useAppModeStore((state) => state.setMode);
   return (
@@ -17,7 +19,16 @@ export function ChildModeButton() {
       }}
       style={styles.button}
     >
-      <Text style={styles.label}>아이 화면</Text>
+      <View style={dashboard && styles.dashboardPill}>
+        <Text style={[styles.label, dashboard && styles.dashboardLabel]}>아이 화면</Text>
+        {dashboard && (
+          <ChevronRight
+            {...dashboardIconProps}
+            size={dashboardTokens.icon.size.small}
+            color={dashboardTokens.colors.primary}
+          />
+        )}
+      </View>
     </Pressable>
   );
 }
@@ -25,4 +36,14 @@ export function ChildModeButton() {
 const styles = StyleSheet.create({
   button: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md },
   label: { color: colors.primaryDark, fontSize: 14, fontWeight: '700' },
+  dashboardPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: dashboardTokens.spacing[4],
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: dashboardTokens.spacing[12],
+    paddingVertical: dashboardTokens.spacing[4],
+    borderRadius: dashboardTokens.radius.pill,
+  },
+  dashboardLabel: { color: dashboardTokens.colors.primary },
 });

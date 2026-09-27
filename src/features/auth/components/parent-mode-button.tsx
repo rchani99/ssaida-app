@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { ChevronRight } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,7 +11,8 @@ import {
   View,
 } from 'react-native';
 
-import { colors, radius, sizing, spacing } from '@/design-system/tokens';
+import { dashboardIconProps } from '@/design-system/icons';
+import { colors, dashboardTokens as t, radius, sizing, spacing } from '@/design-system/tokens';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { verifyParentPin } from '@/features/auth/services/verify-parent-pin';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -19,7 +21,8 @@ import { useAppModeStore } from '@/store/app-mode.store';
 export function ParentModeButton({
   openRequest = 0,
   onOpenRequestHandled,
-}: { openRequest?: number; onOpenRequestHandled?: () => void } = {}) {
+  compact = false,
+}: { openRequest?: number; onOpenRequestHandled?: () => void; compact?: boolean } = {}) {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const [visible, setVisible] = useState(false);
@@ -68,7 +71,7 @@ export function ParentModeButton({
       }
       close();
       useAppModeStore.getState().setMode('parent');
-      router.replace('/');
+      router.replace(openRequest ? '/?destination=parent-review' : '/');
     } catch {
       if (request === attempt.current) setError('PIN을 확인하지 못했어요. 다시 시도해 주세요.');
     } finally {
@@ -100,8 +103,24 @@ export function ParentModeButton({
 
   return (
     <>
-      <Pressable accessibilityRole="button" onPress={() => setVisible(true)} style={styles.open}>
-        <Text style={styles.openText}>부모님</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={compact ? '부모님 모드' : '부모님'}
+        onPress={() => setVisible(true)}
+        style={[styles.open, compact && styles.compactOpen]}
+      >
+        <View style={compact && styles.pill}>
+          <Text style={[styles.openText, compact && styles.pillText]}>
+            {compact ? '부모님 모드' : '부모님'}
+          </Text>
+          {compact && (
+            <ChevronRight
+              {...dashboardIconProps}
+              size={t.icon.size.small}
+              color={t.colors.primary}
+            />
+          )}
+        </View>
       </Pressable>
       <Modal
         visible={visible || Boolean(openRequest)}
@@ -216,6 +235,17 @@ export function ParentModeButton({
 const styles = StyleSheet.create({
   open: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   openText: { color: colors.primaryDark, fontSize: 15, fontWeight: '700' },
+  compactOpen: { minHeight: 44, justifyContent: 'center', paddingVertical: 0 },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[4],
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: t.spacing[12],
+    paddingVertical: t.spacing[4],
+    borderRadius: t.radius.pill,
+  },
+  pillText: { ...t.typography.body, fontWeight: '700', color: t.colors.primary },
   overlay: {
     flex: 1,
     justifyContent: 'center',

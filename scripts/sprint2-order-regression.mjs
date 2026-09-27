@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs';
 
 import ts from 'typescript';
 
+import { uiMocks } from './ui-regression-mocks.mjs';
+
 function load(path, mocks = {}) {
   const source = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
   const module = { exports: {} };
@@ -19,6 +21,7 @@ function load(path, mocks = {}) {
     }).outputText,
   )(
     (id) => {
+      mocks = uiMocks(mocks);
       if (!(id in mocks)) throw new Error(`Missing mock ${id}`);
       return mocks[id];
     },
@@ -159,65 +162,51 @@ const nodes = (t) =>
     : Array.isArray(t)
       ? t.flatMap(nodes)
       : [t, ...nodes(t.props?.children)];
-const button = (label) => {
-  const found = nodes(render()).find((n) => n.props?.label === label);
-  assert.ok(found, label);
-  return found.props;
-};
-button('오늘 순서 변경').onPress();
 const dragList = () => nodes(render()).find((n) => n.type === 'DragList').props;
-assert.deepEqual(
-  dragList().tasks.map((t) => t.id),
-  ['A', 'B'],
-);
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+assert.deepEqual(dragList().draggableIds, ['A', 'B']);
 assert.equal(Boolean(dragList().disabled), false);
 dragList().onDragStateChange(true);
-assert.equal(button('순서 저장').disabled, true);
+dragList().onMove(0, 0);
+assert.equal(calls, 0, 'No-op drop does not save');
 dragList().onMove(0, 1);
-dragList().onDragStateChange(false);
-button('순서 저장').onPress();
-button('순서 저장').onPress();
-assert.equal(calls, 1, 'duplicate save');
+dragList().onMove(0, 1);
+assert.equal(calls, 1, 'Duplicate drop blocked');
 assert.deepEqual(
   saved.tasks.map((t) => t.id),
   ['B', 'A'],
 );
+rows = [{ ...b, sort_order: 0 }, { ...a, sort_order: 1 }, ...excluded];
 options.onSuccess();
-options.onSettled();
-button('오늘 순서 변경').onPress();
-button('순서 변경 취소').onPress();
-assert.equal(calls, 1);
-button('오늘 순서 변경').onPress();
-rows = [a, { ...b, status: 'IN_PROGRESS' }];
-assert.equal(button('순서 저장').disabled, true);
-button('순서 저장').onPress();
-assert.equal(calls, 1);
-await button('최신 순서 불러오기').onPress();
-assert.equal(button('오늘 순서 변경').disabled, true);
-rows = [a, b];
-button('오늘 순서 변경').onPress();
-date = '2026-09-17';
-button('순서 저장').onPress();
-assert.equal(calls, 1, 'midnight save');
-date = '2026-09-16';
-button('순서 저장').onPress();
-options.onError(new api.TaskOrderError('conflict'));
-options.onSettled();
-await Promise.resolve();
-await Promise.resolve();
-await Promise.resolve();
-assert.ok(reloads > 0);
-assert.equal(Boolean(button('오늘 순서 변경').disabled), false);
-assert.ok(
-  nodes(render()).some(
-    (n) => n.props?.children === '공부 상태가 변경되어 최신 내용으로 다시 불러왔습니다.',
-  ),
+await settle();
+assert.deepEqual(
+  dragList()
+    .tasks.slice(0, 2)
+    .map((t) => t.id),
+  ['B', 'A'],
 );
-button('오늘 순서 변경').onPress();
-assert.equal(button('순서 변경 취소').disabled, false);
-button('순서 변경 취소').onPress();
+dragList().onDragStateChange(true);
+rows = [{ ...b, status: 'IN_PROGRESS' }, a];
+dragList().onMove(0, 1);
+assert.equal(calls, 1, 'Changed task cannot be reordered');
+rows = [a, b];
+dragList().onDragStateChange(true);
+date = '2026-09-17';
+dragList().onMove(0, 1);
+assert.equal(calls, 1, 'Midnight drop rejected');
+date = '2026-09-16';
+dragList().onDragStateChange(true);
+dragList().onMove(0, 1);
+options.onError(new api.TaskOrderError('conflict'));
+await settle();
+assert.ok(reloads > 0);
+assert.equal(Boolean(dragList().disabled), false);
+assert.deepEqual(
+  dragList().tasks.map((t) => t.id),
+  ['A', 'B'],
+);
 console.log(
-  'PASS UI/API: drag order, cancel/save, duplicate guard, stale list, midnight, refetch; child priority unchanged',
+  'PASS UI/API: drop save, no-op, duplicate/stale/midnight guards, rollback/refetch and child priority',
 );
 
 if (!process.argv.includes('--ui-only')) {

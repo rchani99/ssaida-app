@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { colors } from '@/design-system/tokens';
+import { ChildModeButton } from '@/features/auth/components/child-mode-button';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { LoadingScreen } from '@/features/auth/screens/loading-screen';
 import { NotificationRouting } from '@/features/notifications/notification-routing';
@@ -52,6 +53,36 @@ function RootNavigator() {
           <Stack.Screen name="child" />
           <Stack.Protected guard={mode === 'parent'}>
             <Stack.Screen name="parent" />
+            <Stack.Screen
+              name="parent-review"
+              options={{
+                headerShown: true,
+                title: '부모 확인',
+                headerRight: () => <ChildModeButton dashboard />,
+                headerStyle: { backgroundColor: colors.card },
+                headerTintColor: colors.textPrimary,
+              }}
+            />
+            <Stack.Screen
+              name="parent-unresolved"
+              options={{
+                headerShown: true,
+                title: '지난 공부 정리하기',
+                headerRight: () => <ChildModeButton />,
+                headerStyle: { backgroundColor: colors.card },
+                headerTintColor: colors.textPrimary,
+              }}
+            />
+            <Stack.Screen
+              name="parent-today-edit"
+              options={{
+                headerShown: true,
+                title: '오늘 공부 편집',
+                headerRight: () => <ChildModeButton dashboard />,
+                headerStyle: { backgroundColor: colors.card },
+                headerTintColor: colors.textPrimary,
+              }}
+            />
           </Stack.Protected>
           <Stack.Screen name="study/[taskId]" />
         </Stack.Protected>

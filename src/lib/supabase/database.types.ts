@@ -233,6 +233,7 @@ export type Database = {
           created_at: string;
           daily_plan_id: string;
           excluded_for_today: boolean;
+          exclusion_reason: string | null;
           growth_weight: number;
           id: string;
           item_type: string;
@@ -261,6 +262,7 @@ export type Database = {
           created_at?: string;
           daily_plan_id: string;
           excluded_for_today?: boolean;
+          exclusion_reason?: string | null;
           growth_weight?: number;
           id?: string;
           item_type: string;
@@ -289,6 +291,7 @@ export type Database = {
           created_at?: string;
           daily_plan_id?: string;
           excluded_for_today?: boolean;
+          exclusion_reason?: string | null;
           growth_weight?: number;
           id?: string;
           item_type?: string;
@@ -500,6 +503,14 @@ export type Database = {
       reorder_daily_tasks: {
         Args: { ordered_tasks: Json; target_daily_plan_id: string };
         Returns: undefined;
+      };
+      preview_quantity_conflict_resolution: {
+        Args: { target_daily_task_id: string };
+        Returns: Json;
+      };
+      resolve_quantity_conflict: {
+        Args: { target_daily_task_id: string; expected_context_token: string };
+        Returns: Json;
       };
       reschedule_manual_task: {
         Args: { source_daily_task_id: string; target_plan_date: string };

@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 
 import ts from 'typescript';
 
+import { uiMocks } from './ui-regression-mocks.mjs';
+
 const token = new Proxy({}, { get: () => 8 });
 const native = new Proxy(
   { StyleSheet: { create: (value) => value }, Platform: { OS: 'web' } },
@@ -18,6 +20,7 @@ function loadPlain(path, imports = {}) {
   const module = { exports: {} };
   new Function('require', 'module', 'exports', output)(
     (id) => {
+      imports = uiMocks(imports);
       if (id in imports) return imports[id];
       throw new Error(`Unexpected plain import: ${id}`);
     },
@@ -27,6 +30,7 @@ function loadPlain(path, imports = {}) {
   return module.exports;
 }
 const exceptionTasks = loadPlain('src/features/learning/utils/exception-tasks.ts');
+const designTokens = loadPlain('src/design-system/tokens.ts');
 const controls = loadPlain('src/features/learning/components/learning-controls.tsx', {
   'react/jsx-runtime': { jsx, jsxs: jsx },
   'react-native': native,
@@ -62,12 +66,17 @@ function harness(path, name, mocks) {
       }
     },
   };
-  const defaults = {
+  const defaults = uiMocks({
     '@/shared/hooks/use-today': { useToday: () => '2026-09-10' },
     react,
     'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
     'react-native': native,
-    '@/design-system/tokens': { colors: token, radius: token, sizing: token, spacing: token },
+    'react-native-safe-area-context': {
+      useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+    },
+    '@/design-system/tokens': designTokens,
+    'lucide-react-native': { ChevronRight: 'ChevronRight' },
+    '@/design-system/icons': { dashboardIconProps: { accessible: false } },
     'expo-router': {
       useRouter: () => ({ replace() {}, back() {} }),
       useLocalSearchParams: () => ({ taskId: 'task' }),
@@ -76,11 +85,19 @@ function harness(path, name, mocks) {
     '@/shared/components/screen-message': { ScreenMessage: 'ScreenMessage' },
     '@/features/learning/utils/exception-tasks': exceptionTasks,
     '@/features/learning/components/learning-controls': controls,
+    '@/features/learning/components/today-plan-edit-gate': { TodayPlanEditGate: 'EditGate' },
+    '@/features/learning/components/quantity-conflict-resolution': {
+      QuantityConflictResolution: 'Resolution',
+    },
+    '@/features/learning/components/task-exclusion-panel': { TaskExclusionPanel: 'Exclusion' },
+    '@/features/learning/components/task-order-panel': { TaskOrderPanel: 'Order' },
+    '@/features/learning/components/task-quantity-panel': { TaskQuantityPanel: 'Quantity' },
     '@/features/learning/components/parent-confirmation-panel': {
       ParentConfirmationPanel: 'ParentConfirmationPanel',
     },
     '@/features/learning/components/manual-tasks-panel': { ManualTasksPanel: 'ManualTasksPanel' },
-  };
+    ...mocks,
+  });
   const output = ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
@@ -169,8 +186,8 @@ const pin = harness('src/features/auth/components/parent-mode-button.tsx', 'Pare
   },
 });
 for (verdict of ['invalid', 'locked', 'valid']) {
-  let tree = pin.render();
-  button(tree, '부모님').onPress();
+  let tree = pin.render({ compact: true });
+  button(tree, '부모님 모드').onPress();
   tree = pin.render();
   nodes(tree)
     .find((node) => node.type === 'TextInput')
@@ -278,7 +295,15 @@ const today = harness('src/features/learning/screens/child-today-screen.tsx', 'C
     useContinuingTasks: () => ({}),
     useStartDailyTask: () => mutation,
   },
-  '@/features/learning/utils/visible-tasks': { mergeVisibleTasks: () => [] },
+  '@/features/learning/utils/visible-tasks': {
+    groupTodayTasks: () => ({
+      today: [],
+      continuing: [],
+      todayCount: 0,
+      todayMinutes: 0,
+      continuingMinutes: 0,
+    }),
+  },
   '@/shared/utils/date': { toLocalDateString: () => '2026-09-10' },
 });
 tree = today.render();
@@ -338,7 +363,7 @@ nodes(tree)
   .find((node) => node.type === 'TextInput')
   .props.onChangeText('101');
 tree = parent.render({ childId: 'child' });
-button(tree, '선택한 공부 확인하기').onPress();
+button(tree, '확인').onPress();
 tree = parent.render({ childId: 'child' });
 assert.equal(confirmCalls, 0);
 assert.ok(text(tree).includes('마지막 쪽을 넘을 수 없어요.'));
@@ -346,11 +371,11 @@ nodes(tree)
   .find((node) => node.type === 'TextInput')
   .props.onChangeText('100');
 tree = parent.render({ childId: 'child' });
-button(tree, '선택한 공부 확인하기').onPress();
+button(tree, '확인').onPress();
 assert.equal(confirmCalls, 1);
-const parentHome = harness(
-  'src/features/learning/screens/parent-home-screen.tsx',
-  'ParentHomeScreen',
+const childModeButton = harness(
+  'src/features/auth/components/child-mode-button.tsx',
+  'ChildModeButton',
   {
     'expo-router': {
       useRouter: () => ({
@@ -370,7 +395,7 @@ const parentHome = harness(
     },
   },
 );
-tree = parentHome.render();
+tree = childModeButton.render();
 button(tree, '아이 화면').onPress();
 assert.equal(mode, 'child');
 assert.equal(route, '/');
@@ -512,16 +537,24 @@ assert.equal(inputField('오늘 할 일 시작 쪽').value, '1');
 button(manualTree(), '지난 공부 2개 정리하기').onPress();
 for (const [label, confirmLabel] of [
   ['오늘에 추가', '오늘로 옮기기 확인'],
-  ['이번에는 넘기기', '넘기기 확인'],
+  ['이번엔 넘기기', '넘기기 확인'],
 ]) {
-  button(manualTree(), `first ${label}`).onPress();
+  button(
+    nodes(manualTree()).find(
+      (node) =>
+        node.type === 'View' &&
+        Array.isArray(node.props.children) &&
+        text(node.props.children[0]) === 'first',
+    ),
+    label,
+  ).onPress();
   tree = manualTree();
   const firstCard = nodes(tree).find(
     (node) =>
       node.type === 'View' &&
       Array.isArray(node.props.children) &&
       text(node.props.children[0]) === 'first' &&
-      text(node).includes('first 오늘에 추가'),
+      text(node).includes('오늘에 추가'),
   );
   assert.ok(firstCard, 'target task card');
   assert.ok(text(firstCard).includes('진행 중인 공부예요.'));
@@ -535,11 +568,29 @@ for (const [label, confirmLabel] of [
   assert.equal(moveCalls + skipCalls, label === '오늘에 추가' ? 0 : 1);
   button(firstCard, '취소').onPress();
   assert.ok(!text(manualTree()).includes(confirmLabel));
-  button(manualTree(), `first ${label}`).onPress();
+  button(
+    nodes(manualTree()).find(
+      (node) =>
+        node.type === 'View' &&
+        Array.isArray(node.props.children) &&
+        text(node.props.children[0]) === 'first',
+    ),
+    label,
+  ).onPress();
   button(manualTree(), confirmLabel).onPress();
 }
 assert.equal(moveCalls, 1);
 assert.equal(skipCalls, 1);
+tree = manual.render({ childId: 'child', mode: 'unresolved', showList: true });
+assert.ok(text(tree).includes('first'));
+assert.ok(!text(tree).includes('지난 공부 2개 정리하기'));
+assert.ok(!text(tree).includes('+ 오늘 할 일 추가'));
+pastTasks.length = 0;
+assert.ok(
+  text(manual.render({ childId: 'child', mode: 'unresolved', showList: true })).includes(
+    '정리할 지난 공부가 없어요.',
+  ),
+);
 console.log(
   'PASS Step 5 polish: numeric sanitization, type/reset fields, task-local confirmation and cancel',
 );
@@ -558,6 +609,20 @@ assert.equal(mode, 'child', 'notification request must not grant parent mode');
 button(tree, '취소').onPress();
 assert.equal(handledGate, 1);
 assert.equal(nodes(pin.render()).find((node) => node.type === 'Modal').props.visible, false);
+verdict = 'valid';
+tree = pin.render({ openRequest: 2 });
+nodes(tree)
+  .find((node) => node.type === 'TextInput')
+  .props.onChangeText('1234');
+tree = pin.render({ openRequest: 2 });
+button(tree, '확인').onPress();
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(mode, 'parent');
+assert.equal(
+  route,
+  '/?destination=parent-review',
+  'Notification PIN success uses safe root redirect',
+);
 let enabledNotifications = 0;
 let savedNotifications;
 const notificationDefaults = {

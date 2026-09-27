@@ -42,3 +42,15 @@ export type ManualTaskInput = {
   startPage: number | null;
   endPage: number | null;
 };
+
+export type QuantityResolution = {
+  task_id: string;
+  context_token: string;
+  kind: 'GAP' | 'ALIGNED' | 'PARTIAL_OVERLAP' | 'FULL_OVERLAP';
+  action: 'ADJUST' | 'EXCLUDE';
+  confirmed_progress: number;
+  old_start: number;
+  old_end: number;
+  new_start: number;
+  new_end: number;
+};

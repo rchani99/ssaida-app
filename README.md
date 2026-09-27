@@ -105,6 +105,26 @@ Supabase secret key, service role key는 앱 코드나 `.env`에 절대 넣지 �
 
 ## Android 실제 기기 실행
 
+Windows에서 일상적인 원격 DEV 테스트 준비는 다음 한 줄로 실행할 수 있습니다.
+휴대폰의 무선 디버깅을 켜고 PC와 같은 Wi-Fi에 연결한 뒤 실행하세요.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-android-test.ps1
+```
+
+스크립트는 Node/ADB를 찾고, 온라인 기기를 선택하고, 8081 reverse를 연결한 뒤 설치된 앱과
+Metro를 실행합니다. pnpm 명령의 PATH 등록은 필요 없습니다. 기기가 없으면 연결 주소를 묻고,
+여러 개면 선택 목록을 표시합니다. 최초 무선 페어링과 debug APK 설치는 별도로 필요합니다.
+
+- 캐시 초기화: 명령 끝에 `-ClearCache` 추가
+- 연결 주소 지정: `-ConnectTo 192.168.0.10:12345` 추가 (휴대폰에 표시된 현재 연결 포트 사용)
+- 이미 Metro가 켜져 있으면 해당 터미널에서 `Ctrl+C`로 종료 후 실행
+- 현재 `.env`를 그대로 사용하며 DB, OAuth 설정, APK 빌드/설치를 변경하지 않음
+- Expo Go QR 대신 설치된 `ssaida-app` 사용. 준비 완료 후 화면이 갱신되지 않으면 앱을 다시 열기
+
+`ExecutionPolicy Bypass`는 이 실행 프로세스에만 적용되며 시스템 실행 정책을 변경하지 않습니다.
+환경 준비 스크립트는 Google OAuth callback의 `Unmatched Route` 같은 앱 오류를 수정하지 않습니다.
+
 ```bash
 pnpm install
 pnpm android

@@ -83,6 +83,16 @@ function RootNavigator() {
                 headerTintColor: colors.textPrimary,
               }}
             />
+            <Stack.Screen
+              name="parent-records"
+              options={{
+                headerShown: true,
+                title: '전체 학습 기록',
+                headerRight: () => <ChildModeButton dashboard />,
+                headerStyle: { backgroundColor: colors.card },
+                headerTintColor: colors.textPrimary,
+              }}
+            />
           </Stack.Protected>
           <Stack.Screen name="study/[taskId]" />
         </Stack.Protected>

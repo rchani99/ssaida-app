@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/shared/components/placeholder-screen';
+import { RecordsScreen as Records } from '@/features/learning/screens/records-screen';
 
 export default function RecordsScreen() {
-  return <PlaceholderScreen title="기록" description="부모 모드 placeholder 화면" />;
+  return <Records />;
 }

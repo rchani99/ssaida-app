@@ -364,6 +364,47 @@ export async function fetchReviewTasks(childId: string): Promise<DailyTaskWithPl
   }
 }
 
+export async function fetchReviewTasksInRange(
+  childId: string,
+  startDate: string,
+  endDate: string,
+): Promise<DailyTaskWithPlan[]> {
+  if (startDate > endDate) throw new Error('startDate must not be after endDate');
+
+  const result: DailyTaskWithPlan[] = [];
+  // Keep pagination defensive for unusually busy months while limiting every page to the period.
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await getSupabaseClient()
+      .from('daily_tasks')
+      .select('*,daily_plans!inner(child_id,plan_date)')
+      .eq('daily_plans.child_id', childId)
+      .gte('daily_plans.plan_date', startDate)
+      .lte('daily_plans.plan_date', endDate)
+      .order('id')
+      .range(offset, offset + 499);
+    throwLearningError('fetchReviewTasksInRange', error);
+    result.push(...(data as DailyTaskWithPlan[]));
+    if (data.length < 500) break;
+  }
+
+  // A successor may sit outside the selected period. Fetch only source references so
+  // cross-boundary reschedules keep the same statistics/history treatment as full history.
+  const superseded = new Set<string>();
+  const ids = result.map((task) => task.id);
+  for (let offset = 0; offset < ids.length; offset += 200) {
+    const { data, error } = await getSupabaseClient()
+      .from('daily_tasks')
+      .select('source_daily_task_id')
+      .in('source_daily_task_id', ids.slice(offset, offset + 200));
+    throwLearningError('fetchReviewTaskSuccessors', error);
+    data.forEach((row) => {
+      if (row.source_daily_task_id) superseded.add(row.source_daily_task_id);
+    });
+  }
+
+  return result.map((task) => ({ ...task, is_superseded: superseded.has(task.id) }));
+}
+
 export async function fetchUnresolvedManualTasks(childId: string, today: string) {
   return unresolvedManualTasks(await fetchReviewTasks(childId), today);
 }

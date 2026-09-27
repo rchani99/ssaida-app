@@ -11,6 +11,7 @@ import {
   saveDailyTargetMinutes,
   addManualDailyTask,
   fetchReviewTasks,
+  fetchReviewTasksInRange,
   fetchUnresolvedManualTasks,
   rescheduleManualTask,
   skipManualTask,
@@ -35,6 +36,8 @@ export const learningKeys = {
   all: ['learning'] as const,
   child: ['learning', 'child'] as const,
   review: (childId: string) => ['learning', 'review', childId] as const,
+  reviewRange: (childId: string, startDate: string, endDate: string) =>
+    ['learning', 'review-range', childId, startDate, endDate] as const,
   unresolved: (childId: string, date: string) => ['learning', 'unresolved', childId, date] as const,
   studyItems: (childId: string) => ['learning', 'study-items', childId] as const,
   plan: (childId: string, date: string) => ['learning', 'plan', childId, date] as const,
@@ -90,10 +93,22 @@ export function useReorderDailyTasks() {
   });
 }
 
-export function useReviewTasks(childId: string) {
+export function useReviewTasks(childId?: string) {
   return useQuery({
-    queryKey: learningKeys.review(childId),
-    queryFn: () => fetchReviewTasks(childId),
+    queryKey: learningKeys.review(childId ?? ''),
+    queryFn: () => fetchReviewTasks(childId!),
+    enabled: Boolean(childId),
+  });
+}
+export function useReviewTasksInRange(
+  childId: string | undefined,
+  startDate: string,
+  endDate: string,
+) {
+  return useQuery({
+    queryKey: learningKeys.reviewRange(childId ?? '', startDate, endDate),
+    queryFn: () => fetchReviewTasksInRange(childId!, startDate, endDate),
+    enabled: Boolean(childId),
   });
 }
 export function useUnresolvedManualTasks(childId: string, date: string) {

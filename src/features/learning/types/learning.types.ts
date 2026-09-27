@@ -8,6 +8,7 @@ export type ChildCollectible = Database['public']['Tables']['child_collectibles'
 
 export type DailyTaskWithPlan = DailyTask & {
   daily_plans: Pick<DailyPlan, 'child_id' | 'plan_date'>;
+  is_superseded?: boolean;
 };
 
 export type CollectibleWithCatalog = ChildCollectible & {

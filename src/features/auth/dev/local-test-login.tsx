@@ -6,11 +6,18 @@ import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 export function isLocalTestLoginAllowed() {
-  if (!__DEV__) return false;
+  if (!__DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN !== 'true') return false;
   try {
     const url = new URL(process.env.EXPO_PUBLIC_SUPABASE_URL ?? '');
     return (
-      url.protocol === 'http:' && ['127.0.0.1', 'localhost', '10.0.2.2'].includes(url.hostname)
+      (url.protocol === 'http:' && ['127.0.0.1', 'localhost', '10.0.2.2'].includes(url.hostname)) ||
+      (process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN === 'true' &&
+        url.origin === 'https://ffnxodulitwzuqswlaga.supabase.co' &&
+        !url.username &&
+        !url.password &&
+        url.pathname === '/' &&
+        !url.search &&
+        !url.hash)
     );
   } catch {
     return false;
@@ -39,10 +46,10 @@ export function LocalTestLogin() {
         email: email.trim(),
         password,
       });
-      if (failure) setError('로컬 계정과 비밀번호를 확인해 주세요.');
+      if (failure) setError('테스트 계정과 비밀번호를 확인해 주세요.');
       else close();
     } catch {
-      setError('로컬 Supabase 연결을 확인해 주세요.');
+      setError('DEV Supabase 연결을 확인해 주세요.');
     } finally {
       setPassword('');
       setBusy(false);
@@ -51,7 +58,7 @@ export function LocalTestLogin() {
   return (
     <>
       <Pressable accessibilityRole="button" onPress={() => setOpen(true)} style={styles.button}>
-        <Text style={styles.text}>DEV · 로컬 테스트 로그인</Text>
+        <Text style={styles.text}>DEV · 테스트 계정 로그인</Text>
       </Pressable>
       <Modal
         visible={open}
@@ -62,7 +69,7 @@ export function LocalTestLogin() {
       >
         <SafeAreaView style={styles.screen}>
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-            <Text style={styles.text}>DEV · 로컬 Supabase 전용</Text>
+            <Text style={styles.text}>DEV · 테스트 계정 전용</Text>
             <TextInput
               accessibilityLabel="테스트 이메일"
               placeholder="이메일"

@@ -34,6 +34,7 @@ const mocks = {
     View: 'View',
     StyleSheet: { create: (x) => x },
   },
+  'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
   '@/design-system/tokens': { colors: {}, radius: {}, sizing: {}, spacing: {} },
   '@/lib/supabase/client': {
     getSupabaseClient: () => ({
@@ -66,6 +67,7 @@ function load(file, dev, imports = mocks) {
 const file = 'src/features/auth/dev/local-test-login.tsx';
 const dev = load(file, true);
 const original = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const originalFlag = process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN;
 const flatten = (tree) =>
   !tree || typeof tree !== 'object'
     ? []
@@ -89,11 +91,31 @@ const button = (label) =>
   flatten(render()).find((n) => n.type === 'Pressable' && text(n) === label).props;
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 try {
+  delete process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN;
+  process.env.EXPO_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321';
+  assert.equal(dev.isLocalTestLoginAllowed(), false);
+  assert.equal(render(), null);
+  process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN = 'true';
   for (const url of ['https://remote.supabase.co', 'http://127.0.0.1.evil.test:54321', 'invalid']) {
     process.env.EXPO_PUBLIC_SUPABASE_URL = url;
     assert.equal(dev.isLocalTestLoginAllowed(), false);
     assert.equal(render(), null);
   }
+  for (const url of [
+    'https://yisdbiuswuitzfmzlnoc.supabase.co',
+    'https://ffnxodulitwzuqswlaga.supabase.co.evil.test',
+    'http://ffnxodulitwzuqswlaga.supabase.co',
+    'https://ffnxodulitwzuqswlaga.supabase.co/path',
+  ]) {
+    process.env.EXPO_PUBLIC_SUPABASE_URL = url;
+    assert.equal(dev.isLocalTestLoginAllowed(), false);
+  }
+  process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://ffnxodulitwzuqswlaga.supabase.co';
+  process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN = 'false';
+  assert.equal(dev.isLocalTestLoginAllowed(), false);
+  process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN = 'true';
+  assert.equal(dev.isLocalTestLoginAllowed(), true);
+  assert.equal(load(file, false).isLocalTestLoginAllowed(), false);
   process.env.EXPO_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321';
   assert.equal(load(file, false).isLocalTestLoginAllowed(), false);
   // In release, the entry point must not even require the DEV form module.
@@ -102,7 +124,7 @@ try {
     '@/features/auth/hooks/use-auth': {},
     '@/features/auth/services/google-oauth': {},
   });
-  button('DEV · 로컬 테스트 로그인').onPress();
+  button('DEV · 테스트 계정 로그인').onPress();
   field('테스트 이메일').onChangeText(' fixture@example.test ');
   const ephemeral = randomBytes(16).toString('hex');
   field('테스트 비밀번호').onChangeText(ephemeral);
@@ -122,9 +144,11 @@ try {
   assert.equal(field('테스트 이메일').value, '');
   assert.equal(field('테스트 비밀번호').value, '');
   console.log(
-    'PASS DEV login: release module guard, local-only endpoint, normal password Auth, cleared inputs, generic errors',
+    'PASS DEV login: release module guard, local and explicit DEV allowlist, production blocked, normal password Auth, cleared inputs, generic errors',
   );
 } finally {
   if (original === undefined) delete process.env.EXPO_PUBLIC_SUPABASE_URL;
   else process.env.EXPO_PUBLIC_SUPABASE_URL = original;
+  if (originalFlag === undefined) delete process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN;
+  else process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN = originalFlag;
 }

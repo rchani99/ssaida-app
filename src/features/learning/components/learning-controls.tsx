@@ -82,12 +82,16 @@ export function LearningField({
   onChangeText,
   numeric = false,
   disabled = false,
+  secure = false,
+  maxLength,
 }: {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
   numeric?: boolean;
   disabled?: boolean;
+  secure?: boolean;
+  maxLength?: number;
 }) {
   return (
     <>
@@ -98,6 +102,9 @@ export function LearningField({
         editable={!disabled}
         onChangeText={(text) => onChangeText(numeric ? text.replace(/\D/g, '') : text)}
         keyboardType={numeric ? 'number-pad' : 'default'}
+        secureTextEntry={secure}
+        maxLength={maxLength}
+        autoComplete="off"
         style={learningStyles.input}
       />
     </>

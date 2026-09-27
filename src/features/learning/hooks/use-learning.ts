@@ -7,6 +7,8 @@ import {
   updateStudyItem,
   changeStudyItemStatus,
   saveRestWeekdays,
+  saveChildName,
+  saveDailyTargetMinutes,
   addManualDailyTask,
   fetchReviewTasks,
   fetchUnresolvedManualTasks,
@@ -136,6 +138,14 @@ export function useChangeStudyItemStatus() {
 export function useSaveRestWeekdays() {
   const invalidate = useInvalidateLearning();
   return useMutation({ mutationFn: saveRestWeekdays, onSuccess: invalidate });
+}
+export function useSaveChildName() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({ mutationFn: saveChildName, onSuccess: invalidate });
+}
+export function useSaveDailyTargetMinutes() {
+  const invalidate = useInvalidateLearning();
+  return useMutation({ mutationFn: saveDailyTargetMinutes, onSuccess: invalidate });
 }
 
 export function useDailyPlan(childId: string | undefined, planDate: string) {

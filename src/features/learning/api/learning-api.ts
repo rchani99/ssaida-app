@@ -109,6 +109,29 @@ export async function saveRestWeekdays(input: { childId: string; weekdays: numbe
   throwLearningError('saveRestWeekdays', error);
 }
 
+export async function saveChildName(input: { childId: string; name: string }) {
+  const name = input.name.trim();
+  if (name.length < 1 || name.length > 20) throw new Error('아이 이름은 1~20자로 입력해 주세요.');
+  const { error } = await getSupabaseClient()
+    .from('children')
+    .update({ name })
+    .eq('id', input.childId)
+    .select('id')
+    .single();
+  throwLearningError('saveChildName', error);
+}
+
+export async function saveDailyTargetMinutes(input: { childId: string; minutes: number }) {
+  if (![30, 45, 60, 90].includes(input.minutes)) throw new Error('학습 시간을 확인해 주세요.');
+  const { error } = await getSupabaseClient()
+    .from('children')
+    .update({ daily_target_minutes: input.minutes })
+    .eq('id', input.childId)
+    .select('id')
+    .single();
+  throwLearningError('saveDailyTargetMinutes', error);
+}
+
 export async function createStudyItem(input: CreateStudyItemInput) {
   const { data, error } = await getSupabaseClient()
     .from('study_items')

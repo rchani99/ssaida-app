@@ -488,6 +488,10 @@ export type Database = {
         Args: { child_name: string; parent_pin: string; target_minutes: number };
         Returns: undefined;
       };
+      change_parent_pin: {
+        Args: { current_pin: string; new_pin: string };
+        Returns: string;
+      };
       confirm_daily_tasks: {
         Args: { task_confirmations: Json };
         Returns: undefined;

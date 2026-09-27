@@ -3,19 +3,10 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { childCollectionTokens as reward, colors, spacing } from '@/design-system/tokens';
 import { CollectionAlbum } from '@/features/learning/components/collection-album';
 import { CollectionPanel } from '@/features/learning/components/collection-panel';
-import { NextThemePanel } from '@/features/learning/components/next-theme-panel';
+import { ThemeAlbumBrowser } from '@/features/learning/components/theme-album-browser';
 import { useCollectionAlbum } from '@/features/learning/hooks/use-collection-album';
 import { useCurrentChild } from '@/features/learning/hooks/use-learning';
 import { ScreenMessage } from '@/shared/components/screen-message';
-
-const themeLabels: Record<string, string> = {
-  DINO: '공룡',
-  GEM: '보석',
-  ROBOT: '로봇',
-  DOLL: '인형',
-  COIN: '동전',
-  PLANT: '식물',
-};
 
 export function GardenScreen() {
   const childQuery = useCurrentChild();
@@ -36,9 +27,16 @@ export function GardenScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.theme}>
-        {themeLabels[childQuery.data.selected_collection_theme_code ?? ''] ?? '나만의'} 테마
-      </Text>
+      {childQuery.data.selected_collection_theme_code ? (
+        <ThemeAlbumBrowser
+          key={`${childQuery.data.id}-${childQuery.data.selected_collection_theme_code}`}
+          childId={childQuery.data.id}
+          currentTheme={childQuery.data.selected_collection_theme_code}
+          canSwitch={Boolean(albumQuery.data?.isComplete && !albumQuery.isError)}
+        />
+      ) : (
+        <Text style={styles.theme}>나만의 테마</Text>
+      )}
       <CollectionPanel
         child={childQuery.data}
         key={`panel-${childQuery.data.selected_collection_theme_code ?? 'none'}`}
@@ -52,15 +50,6 @@ export function GardenScreen() {
             : undefined
         }
       />
-      {childQuery.data.selected_collection_theme_code &&
-        albumQuery.data?.isComplete &&
-        !albumQuery.isError && (
-          <NextThemePanel
-            key={`next-${childQuery.data.selected_collection_theme_code}`}
-            childId={childQuery.data.id}
-            themeCode={childQuery.data.selected_collection_theme_code}
-          />
-        )}
       {childQuery.data.selected_collection_theme_code &&
         (albumQuery.isError ? (
           <ScreenMessage

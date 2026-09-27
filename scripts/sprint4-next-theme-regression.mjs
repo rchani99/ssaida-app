@@ -114,7 +114,7 @@ const { GardenScreen } = load('src/features/learning/screens/garden-screen.tsx',
   ...common,
   '@/features/learning/components/collection-panel': { CollectionPanel: 'Panel' },
   '@/features/learning/components/collection-album': { CollectionAlbum: 'Album' },
-  '@/features/learning/components/next-theme-panel': { NextThemePanel: 'Next' },
+  '@/features/learning/components/theme-album-browser': { ThemeAlbumBrowser: 'Browser' },
   '@/features/learning/hooks/use-collection-album': {
     useCollectionAlbum: () => ({ data: { total: 3, isComplete: complete }, isError: error }),
   },
@@ -125,11 +125,12 @@ const { GardenScreen } = load('src/features/learning/screens/garden-screen.tsx',
   },
   '@/shared/components/screen-message': { ScreenMessage: 'Message' },
 });
-assert.ok(!nodes(GardenScreen()).some((n) => n.type === 'Next'));
+assert.equal(nodes(GardenScreen()).find((n) => n.type === 'Browser').props.canSwitch, false);
 complete = true;
-assert.equal(nodes(GardenScreen()).find((n) => n.type === 'Next').props.themeCode, 'DINO');
+assert.equal(nodes(GardenScreen()).find((n) => n.type === 'Browser').props.currentTheme, 'DINO');
+assert.equal(nodes(GardenScreen()).find((n) => n.type === 'Browser').props.canSwitch, true);
 error = true;
-assert.ok(!nodes(GardenScreen()).some((n) => n.type === 'Next'));
+assert.equal(nodes(GardenScreen()).find((n) => n.type === 'Browser').props.canSwitch, false);
 error = false;
 complete = false;
 theme = 'GEM';
@@ -140,7 +141,7 @@ for (let i = 0; i < 2; i++) {
       .selected_collection_theme_code,
     'GEM',
   );
-  assert.ok(!nodes(GardenScreen()).some((n) => n.type === 'Next'));
+  assert.equal(nodes(GardenScreen()).find((n) => n.type === 'Browser').props.canSwitch, false);
 }
 console.log(
   'PASS next-theme UI: completion gate, cards, empty/completed disabled, mutation/error/cancel, server-selected garden on remount',

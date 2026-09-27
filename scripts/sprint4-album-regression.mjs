@@ -85,7 +85,7 @@ const { GardenScreen } = load('src/features/learning/screens/garden-screen.tsx',
   '@/design-system/tokens': tokens,
   '@/features/learning/components/collection-album': { CollectionAlbum: 'Album' },
   '@/features/learning/components/collection-panel': { CollectionPanel: 'Panel' },
-  '@/features/learning/components/next-theme-panel': { NextThemePanel: 'NextTheme' },
+  '@/features/learning/components/theme-album-browser': { ThemeAlbumBrowser: 'Browser' },
   '@/features/learning/hooks/use-collection-album': { useCollectionAlbum: () => ({ data: album }) },
   '@/features/learning/hooks/use-learning': {
     useCurrentChild: () => ({
@@ -104,9 +104,13 @@ for (const theme of ['DINO', 'GEM']) {
   const keys = GardenScreen()
     .props.children.filter((child) => child?.key != null)
     .map((child) => child.key);
-  assert.equal(keys.length, 2);
+  assert.equal(keys.length, 3);
   assert.equal(new Set(keys).size, keys.length, 'Garden siblings must have unique keys');
-  assert.deepEqual(keys, [`panel-${theme}`, `album-${theme}`], 'Both reset on theme change');
+  assert.deepEqual(
+    keys,
+    [`child-${theme}`, `panel-${theme}`, `album-${theme}`],
+    'Both reset on theme change',
+  );
 }
 console.log('PASS GardenScreen unique sibling keys and theme-change reset');
 const { CollectionAlbum } = load('src/features/learning/components/collection-album.tsx', {
@@ -127,7 +131,10 @@ const text = (tree) =>
 assert.ok(!text(GardenScreen()).includes('잘 모아둔 성장'));
 pendingPoints = 0.5;
 assert.match(text(GardenScreen()), /잘 모아둔 성장 \+\s*0.5/);
-assert.match(text(GardenScreen()), /보석\s*테마/);
+assert.equal(
+  nodes(GardenScreen()).find((node) => node.type === 'Browser').props.currentTheme,
+  'GEM',
+);
 assert.match(text(GardenScreen()), /다음 아이템을 키울 때 사용돼요/);
 assert.match(text(GardenScreen()), /잘 모아둔 성장 \+\s*0.5/, 'remount reads server pending');
 pendingPoints = 0;

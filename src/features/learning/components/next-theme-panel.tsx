@@ -6,7 +6,7 @@ import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { fetchCollectionAlbum } from '@/features/learning/api/collection-album-api';
 import { useSelectCollectionTheme } from '@/features/learning/hooks/use-learning';
 
-const themes = [
+export const collectionThemes = [
   ['DINO', '공룡'],
   ['GEM', '보석'],
   ['ROBOT', '로봇'],
@@ -14,6 +14,7 @@ const themes = [
   ['COIN', '동전'],
   ['PLANT', '식물'],
 ] as const;
+const themes = collectionThemes;
 
 // Mounted only after the current nonempty active catalog is fully revealed.
 export function NextThemePanel({ childId, themeCode }: { childId: string; themeCode: string }) {

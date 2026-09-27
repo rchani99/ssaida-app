@@ -430,9 +430,9 @@ assert.equal(
   'IN_PROGRESS',
 );
 await complete(userA.client, flow.task.id);
-await mustSucceed(
+await mustFail(
   userA.client.rpc('select_collection_theme', { target_theme_code: 'GEM' }),
-  'switch GEM',
+  'reject switch while DINO is growing',
 );
 await confirm(userA.client, flow.task.id, 'PARTIAL', 3);
 const flowAfterConfirm = await mustSucceed(
@@ -477,7 +477,7 @@ const activityTask = await ensure(userA.client, a.child.id, '2030-01-08', activi
 await start(userA.client, activityTask.task.id);
 await mustSucceed(
   userA.client.rpc('select_collection_theme', { target_theme_code: 'DINO' }),
-  'return DINO',
+  'reselect current DINO',
 );
 await complete(userA.client, activityTask.task.id);
 await confirm(userA.client, activityTask.task.id, 'PARENT_CONFIRMED');
@@ -492,6 +492,10 @@ const completedDino = await mustSucceed(
 );
 assert.equal(Number(completedDino.progress_points), 1);
 assert.equal(completedDino.revealed_at, null);
+await mustFail(
+  userA.client.rpc('select_collection_theme', { target_theme_code: 'GEM' }),
+  'reject switch while DINO awaits reveal',
+);
 assert.equal(
   Number(
     (
@@ -605,6 +609,11 @@ assert.equal(
   ),
   pendingBeforeExhaustedGrowth + 1,
 );
+assert.ok(allDino.every((item) => item.revealed_at !== null));
+await mustSucceed(
+  userA.client.rpc('select_collection_theme', { target_theme_code: 'GEM' }),
+  'switch after all active DINO items are revealed',
+);
 await mustFail(
   userA.client.from('child_collectibles').update({ progress_points: 0 }).eq('id', dinoRows[1].id),
   'direct collectible update',
@@ -647,7 +656,7 @@ await mustFail(
   'direct growth event delete',
 );
 
-// Concurrent theme change cannot redirect a task whose reward theme was snapshotted at completion.
+// A concurrent switch is rejected even when confirmation completes an unrevealed item.
 const bActivity = await addStudyItem(userB.client, b.child.id, {
   itemType: 'ACTIVITY',
   name: 'B snapshot activity',
@@ -706,7 +715,7 @@ const themeRace = await Promise.all([
     ],
   }),
 ]);
-assert.equal(themeRace[0].error, null, themeRace[0].error?.message);
+assert.equal(themeRace[0].error?.code, '22023');
 assert.equal(themeRace[1].error, null, themeRace[1].error?.message);
 assert.equal(
   Number(
@@ -731,10 +740,10 @@ assert.equal(
           .from('child_collectibles')
           .select('progress_points')
           .eq('theme_code', 'GEM')
-          .single(),
+          .maybeSingle(),
         'GEM after race',
       )
-    ).progress_points,
+    )?.progress_points ?? 0,
   ),
   gemBefore,
 );

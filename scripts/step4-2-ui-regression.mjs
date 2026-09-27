@@ -85,6 +85,8 @@ function harness(path, name, mocks) {
     '@/shared/components/screen-message': { ScreenMessage: 'ScreenMessage' },
     '@/features/learning/utils/exception-tasks': exceptionTasks,
     '@/features/learning/components/learning-controls': controls,
+    '@/features/learning/components/growth-visual': { GrowthVisual: 'GrowthVisual' },
+    '@/features/learning/components/completion-reward': { CompletionReward: 'CompletionReward' },
     '@/features/learning/components/today-plan-edit-gate': { TodayPlanEditGate: 'EditGate' },
     '@/features/learning/components/quantity-conflict-resolution': {
       QuantityConflictResolution: 'Resolution',
@@ -248,7 +250,7 @@ const reveal = {
   ...mutation,
   mutate(id, callbacks) {
     this.isError = !success;
-    if (success) callbacks.onSuccess();
+    if (success) callbacks.onSuccess('HIDDEN_NAME');
   },
 };
 const collection = harness(
@@ -266,12 +268,12 @@ const collection = harness(
 );
 const props = { child: { id: 'child', selected_collection_theme_code: 'DINO' } };
 tree = collection.render(props);
-button(tree, '열어보기').onPress();
+button(tree, '새 친구 공개하기').onPress();
 tree = collection.render(props);
 assert.ok(!text(tree).includes('HIDDEN_NAME'));
 assert.ok(text(tree).includes('지금은 열어볼 수 없어요.'));
 success = true;
-button(tree, '열어보기').onPress();
+button(tree, '새 친구 공개하기').onPress();
 tree = collection.render(props);
 assert.ok(text(tree).includes('HIDDEN_NAME'));
 item = { ...item, id: 'two', status: 'GROWING' };

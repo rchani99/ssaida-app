@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { BookOpen } from 'lucide-react-native';
+import { BookOpen, Sprout } from 'lucide-react-native';
 
 import { dashboardIconProps } from '@/design-system/icons';
 import { colors, dashboardTokens as t } from '@/design-system/tokens';
@@ -39,7 +39,21 @@ export default function ChildTabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="garden" options={{ title: '정원' }} />
+      <Tabs.Screen
+        name="garden"
+        options={{
+          title: '내 컬렉션',
+          tabBarLabel: '정원',
+          headerTitleAlign: 'left',
+          headerTitleStyle: t.typography.header,
+          headerRight: () => (
+            <ParentModeButton compact openRequest={gateRequest} onOpenRequestHandled={clearGate} />
+          ),
+          tabBarIcon: ({ color }) => (
+            <Sprout {...dashboardIconProps} color={color} size={t.icon.size.large} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

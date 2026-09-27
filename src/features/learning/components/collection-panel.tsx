@@ -2,7 +2,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, sizing, spacing } from '@/design-system/tokens';
+import {
+  childCollectionTokens as reward,
+  colors,
+  radius,
+  sizing,
+  spacing,
+} from '@/design-system/tokens';
+import { GrowthVisual } from '@/features/learning/components/growth-visual';
 import {
   learningKeys,
   useCurrentCollectible,
@@ -21,7 +28,13 @@ const THEMES = [
   { code: 'PLANT', label: '식물' },
 ] as const;
 
-export function CollectionPanel({ child }: { child: Child }) {
+export function CollectionPanel({
+  child,
+  albumState,
+}: {
+  child: Child;
+  albumState?: 'empty' | 'complete' | 'incomplete';
+}) {
   const queryClient = useQueryClient();
   const collectibleQuery = useCurrentCollectible(child.id, child.selected_collection_theme_code);
   const selectTheme = useSelectCollectionTheme();
@@ -38,8 +51,11 @@ export function CollectionPanel({ child }: { child: Child }) {
   if (!child.selected_collection_theme_code) {
     return (
       <View style={styles.panel}>
+        <Text accessible={false} style={styles.mascot}>
+          ✦
+        </Text>
         <Text style={styles.title}>어떤 친구를 키워볼까요?</Text>
-        <Text style={styles.description}>공부를 마칠 때마다 조금씩 자라요.</Text>
+        <Text style={styles.description}>공부를 마치고 부모님께 확인받으면 조금씩 자라요.</Text>
         <View style={styles.themeGrid}>
           {THEMES.map((theme) => (
             <Pressable
@@ -80,6 +96,10 @@ export function CollectionPanel({ child }: { child: Child }) {
   if (revealed && revealed.id === collectibleId) {
     return (
       <View style={styles.panel}>
+        <Text style={styles.badge}>새 친구 발견!</Text>
+        <Text accessible={false} style={styles.mascot}>
+          ✦
+        </Text>
         <Text style={styles.title}>새 친구를 만났어요!</Text>
         <Text style={styles.revealed}>{revealed.name}</Text>
         <Pressable
@@ -98,29 +118,41 @@ export function CollectionPanel({ child }: { child: Child }) {
   if (!collectible) {
     return (
       <View style={styles.panel}>
-        <Text style={styles.title}>{selectedTheme?.label} 친구들을 모두 만났어요</Text>
-        <Text style={styles.description}>새로운 친구가 준비되면 다시 알려드릴게요.</Text>
+        <Text accessible={false} style={styles.mascot}>
+          {albumState === 'complete' ? '✦' : '?'}
+        </Text>
+        <Text style={styles.title}>
+          {albumState === 'complete'
+            ? `${selectedTheme?.label} 친구들을 모두 만났어요`
+            : albumState === 'empty'
+              ? '아직 준비된 아이템이 없어요'
+              : '현재 키우는 친구가 없어요'}
+        </Text>
+        <Text style={styles.description}>
+          {albumState === 'complete'
+            ? '도감에서 모은 친구들을 만나보세요.'
+            : '아래 수집 현황을 확인해 주세요.'}
+        </Text>
       </View>
     );
   }
 
   const isReady = collectible.status === 'COMPLETED' && collectible.revealed_at === null;
-  const progress = Math.min(
-    100,
-    Math.max(8, (collectible.progress_points / collectible.growth_goal_snapshot) * 100),
-  );
 
   return (
     <View style={styles.panel}>
-      <Text style={styles.eyebrow}>{selectedTheme?.label} 정원</Text>
+      <Text style={styles.eyebrow}>{selectedTheme?.label} 친구를 모으고 있어요</Text>
+      {isReady && <Text style={styles.badge}>완성! 새 친구를 공개해요</Text>}
       <Text style={styles.title}>
         {isReady ? '새로운 친구를 만날 준비가 됐어요!' : '무언가 자라고 있어요'}
       </Text>
+      <GrowthVisual
+        points={collectible.progress_points}
+        goal={collectible.growth_goal_snapshot}
+        ready={isReady}
+      />
       {!isReady && (
         <>
-          <View style={styles.gauge}>
-            <View style={[styles.gaugeFill, { width: `${progress}%` }]} />
-          </View>
           <Text style={styles.description}>공부를 마치고 부모님께 확인받아 보세요.</Text>
         </>
       )}
@@ -131,8 +163,15 @@ export function CollectionPanel({ child }: { child: Child }) {
           onPress={() => {
             setRevealed(null);
             reveal.mutate(collectible.id, {
-              onSuccess: () =>
-                setRevealed({ id: collectible.id, name: collectible.collectible_catalog.name }),
+              onSuccess: (name) => {
+                setRevealed({ id: collectible.id, name });
+                // Refresh album and stored growth, but not the current collectible:
+                // replacing its id here would hide the just-revealed result.
+                void queryClient.invalidateQueries({
+                  queryKey: ['learning', 'collection-album', child.id],
+                });
+                void queryClient.invalidateQueries({ queryKey: learningKeys.child });
+              },
             });
           }}
           style={styles.primaryButton}
@@ -140,7 +179,7 @@ export function CollectionPanel({ child }: { child: Child }) {
           {reveal.isPending ? (
             <ActivityIndicator color={colors.card} />
           ) : (
-            <Text style={styles.primaryButtonText}>열어보기</Text>
+            <Text style={styles.primaryButtonText}>새 친구 공개하기</Text>
           )}
         </Pressable>
       )}
@@ -154,12 +193,41 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: reward.mintBorder,
+    borderRadius: reward.heroRadius,
     backgroundColor: colors.card,
   },
-  eyebrow: { color: colors.primary, fontSize: 13, fontWeight: '700' },
-  title: { color: colors.textPrimary, fontSize: 20, fontWeight: '800', lineHeight: 28 },
+  eyebrow: { color: colors.primaryDark, fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  title: {
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 30,
+    textAlign: 'center',
+  },
+  mascot: {
+    alignSelf: 'center',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: reward.butter,
+    fontSize: 56,
+    color: reward.butterInk,
+    paddingTop: 20,
+  },
+  badge: {
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: reward.butter,
+    color: reward.butterInk,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   description: { color: colors.textSecondary, fontSize: 14, lineHeight: 21 },
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   themeButton: {
@@ -169,24 +237,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.button,
-    backgroundColor: colors.background,
+    backgroundColor: reward.mint,
   },
   themeText: { color: colors.textPrimary, fontWeight: '700' },
-  gauge: {
-    height: 14,
-    overflow: 'hidden',
-    borderRadius: 7,
-    backgroundColor: colors.primaryLight,
-  },
-  gaugeFill: { height: '100%', borderRadius: 7, backgroundColor: colors.primary },
   primaryButton: {
-    height: sizing.buttonHeight,
+    minHeight: sizing.buttonHeight,
+    padding: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.button,
+    borderRadius: reward.cardRadius,
     backgroundColor: colors.primary,
   },
   primaryButtonText: { color: colors.card, fontSize: 16, fontWeight: '700' },
-  revealed: { color: colors.primaryDark, fontSize: 15, fontWeight: '700' },
+  revealed: { color: colors.primaryDark, fontSize: 22, fontWeight: '800', textAlign: 'center' },
   error: { color: colors.error, fontSize: 13 },
 });

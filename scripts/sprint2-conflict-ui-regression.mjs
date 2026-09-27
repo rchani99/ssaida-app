@@ -66,6 +66,7 @@ const hooks = {
   useConfirmDailyTasks: () => ({}),
 };
 const mocks = {
+  '@/features/learning/components/completion-reward': { CompletionReward: 'CompletionReward' },
   ...common,
   '@/features/learning/components/quantity-conflict-resolution': {
     QuantityConflictResolution: 'Resolution',

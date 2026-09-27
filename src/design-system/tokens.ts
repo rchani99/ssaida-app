@@ -32,6 +32,20 @@ export const sizing = {
 
 export const tokens = { colors, spacing, radius, sizing } as const;
 
+// Opt-in reward palette: never changes the calmer parent surfaces.
+export const childCollectionTokens = {
+  canvas: '#F5FAF5',
+  mint: '#E0F3E8',
+  mintBorder: '#C7E5D2',
+  lavender: '#EEEAF8',
+  lavenderInk: '#6A5988',
+  butter: '#FFF1C9',
+  butterInk: '#795B24',
+  peach: '#FFE9DC',
+  heroRadius: 28,
+  cardRadius: 22,
+} as const;
+
 // Opt-in parent v2 tokens. Existing child and legacy component tokens stay unchanged.
 export const parentTokens = {
   spacing,

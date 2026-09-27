@@ -2,7 +2,7 @@ import { isOneTime, unresolvedManualTasks } from '@/features/learning/utils/exce
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 import type {
-  CollectibleWithCatalog,
+  ChildCollectible,
   ConfirmationInput,
   CreateStudyItemInput,
   DailyPlan,
@@ -437,11 +437,11 @@ export async function selectCollectionTheme(themeCode: string) {
 export async function fetchCurrentCollectible(
   childId: string,
   themeCode: string | null,
-): Promise<CollectibleWithCatalog | null> {
+): Promise<ChildCollectible | null> {
   if (!themeCode) return null;
   const { data, error } = await getSupabaseClient()
     .from('child_collectibles')
-    .select('*,collectible_catalog(name)')
+    .select('*')
     .eq('child_id', childId)
     .eq('theme_code', themeCode)
     .or('status.eq.GROWING,and(status.eq.COMPLETED,revealed_at.is.null)')
@@ -449,7 +449,7 @@ export async function fetchCurrentCollectible(
     .limit(1)
     .maybeSingle();
   throwLearningError('fetchCurrentCollectible', error);
-  return data as CollectibleWithCatalog | null;
+  return data;
 }
 
 export async function revealCollectible(collectibleId: string) {
@@ -457,4 +457,13 @@ export async function revealCollectible(collectibleId: string) {
     target_child_collectible_id: collectibleId,
   });
   throwLearningError('revealCollectible', error);
+  // Fetch identity only after the server has committed the explicit reveal.
+  const result = await getSupabaseClient()
+    .from('child_collectibles')
+    .select('collectible_catalog(name)')
+    .eq('id', collectibleId)
+    .not('revealed_at', 'is', null)
+    .single();
+  throwLearningError('revealedCollectibleName', result.error);
+  return result.data.collectible_catalog.name;
 }

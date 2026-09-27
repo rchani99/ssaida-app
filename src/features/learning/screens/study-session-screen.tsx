@@ -1,8 +1,10 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
+import { CompletionReward } from '@/features/learning/components/completion-reward';
 import {
   useCompleteDailyTask,
   useDailyTask,
@@ -17,6 +19,7 @@ export function StudySessionScreen() {
   const taskQuery = useDailyTask(taskId);
   const startTask = useStartDailyTask();
   const completeTask = useCompleteDailyTask();
+  const [completedHere, setCompletedHere] = useState<string | null>(null);
 
   if (taskQuery.isLoading) return <ScreenMessage loading message="공부를 준비하고 있어요." />;
   if (taskQuery.isError || !taskQuery.data) {
@@ -96,7 +99,8 @@ export function StudySessionScreen() {
             disabled={startTask.isPending || completeTask.isPending || (!canStart && !canComplete)}
             onPress={() => {
               if (canStart) startTask.mutate(task.id);
-              if (canComplete) completeTask.mutate(task.id);
+              if (canComplete)
+                completeTask.mutate(task.id, { onSuccess: () => setCompletedHere(task.id) });
             }}
             style={styles.primaryButton}
           >
@@ -108,6 +112,9 @@ export function StudySessionScreen() {
               </Text>
             )}
           </Pressable>
+        )}
+        {completedHere === task.id && task.status === 'CHILD_COMPLETED' && (
+          <CompletionReward key={task.id} taskId={task.id} />
         )}
         {(startTask.isError || completeTask.isError) && (
           <Text style={styles.error}>처리하지 못했어요. 잠시 후 다시 시도해 주세요.</Text>

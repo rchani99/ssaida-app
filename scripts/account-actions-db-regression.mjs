@@ -1,8 +1,8 @@
 // Creates its own Docker network, PostgreSQL and Auth. Never reads .env or an existing DB.
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { execFile, execFileSync, spawnSync } from 'node:child_process';
-import { createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { execFile, execFileSync, spawn, spawnSync } from 'node:child_process';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { request } from 'node:http';
 
@@ -64,6 +64,45 @@ const concurrentSql = (input) =>
     process.stdin.end(input);
   });
 const delay = () => new Promise((resolve) => setTimeout(resolve, 500));
+const holdTransaction = async (statement, inspect, commit = false) => {
+  const process = spawn(docker, [
+    'exec',
+    '-i',
+    db,
+    'psql',
+    '-U',
+    'postgres',
+    '-d',
+    'postgres',
+    '-At',
+    '-v',
+    'ON_ERROR_STOP=1',
+  ]);
+  const closed = new Promise((resolve) => process.on('close', resolve));
+  try {
+    const ready = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Transaction setup timeout')), 10000);
+      let out = '';
+      process.stdout.on('data', (data) => {
+        out += data;
+        if (out.includes('TX_READY')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+      process.on('error', () => {
+        clearTimeout(timer);
+        reject(new Error('Transaction process failed'));
+      });
+    });
+    process.stdin.write(`begin; ${statement}; select 'TX_READY';\n`);
+    await ready;
+    await inspect();
+  } finally {
+    process.stdin.end(commit ? 'commit;\n' : 'rollback;\n');
+    assert.equal(await closed, 0, 'transaction closed');
+  }
+};
 const localFetch = (url, options = {}) =>
   new Promise((resolve, reject) => {
     const target = new URL(url);
@@ -129,6 +168,8 @@ try {
   }
   stage = 'SQL regression';
   sql(readFileSync('supabase/tests/sensitive_account_actions.sql', 'utf8'));
+  sql(readFileSync('supabase/tests/sensitive_action_cleanup.sql', 'utf8'));
+  sql(readFileSync('supabase/tests/account_deletion_receipts.sql', 'utf8'));
   console.log(
     'PASS isolated DB: full migration replay; server-only privileges, PIN bcrypt/lock reset, ownership, expiry, cancel, purpose, replay and FK cascade',
   );
@@ -146,8 +187,117 @@ try {
     ),
   );
   assert.deepEqual(race.sort(), ['f', 't']);
+  stage = 'cleanup skips locked proof';
+  sql(
+    `update public.sensitive_action_challenges set expires_at=clock_timestamp()-interval '25 hours' where id='${id}';`,
+  );
+  const locker = spawn(docker, [
+    'exec',
+    '-i',
+    db,
+    'psql',
+    '-U',
+    'postgres',
+    '-d',
+    'postgres',
+    '-At',
+    '-v',
+    'ON_ERROR_STOP=1',
+  ]);
+  const closed = new Promise((resolve) => locker.on('close', resolve));
+  try {
+    const locked = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Lock setup timeout')), 10000);
+      let output = '';
+      locker.stdout.on('data', (chunk) => {
+        output += chunk;
+        if (output.includes('ROW_LOCKED')) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+      locker.on('error', () => {
+        clearTimeout(timeout);
+        reject(new Error('Lock process failed'));
+      });
+    });
+    locker.stdin.write(
+      `begin; select id from public.sensitive_action_challenges where id='${id}' for update; select 'ROW_LOCKED';\n`,
+    );
+    await locked;
+    assert.equal(sql('select public.cleanup_sensitive_action_challenges();'), '0');
+    assert.equal(
+      sql(`select count(*) from public.sensitive_action_challenges where id='${id}';`),
+      '1',
+    );
+  } finally {
+    locker.stdin.end('rollback;\n');
+    await closed;
+  }
+  assert.equal(sql('select public.cleanup_sensitive_action_challenges();'), '1');
+  console.log(
+    'PASS proof TTL: expired statuses removed, recent proofs retained and locked rows skipped',
+  );
   sql(`delete from auth.users where id='${user}';`);
   console.log('PASS concurrent proof consumption: exactly one transaction wins');
+
+  stage = 'receipt transactions and races';
+  const receiptUser = randomUUID();
+  const receiptHash = createHash('sha256').update(randomBytes(32)).digest('hex');
+  sql(`insert into auth.users(id) values('${receiptUser}');`);
+  const receiptProof = sql(
+    `select (public.begin_sensitive_action('${receiptUser}','delete_account','isolated','${randomUUID()}')).id;`,
+  );
+  sql(
+    `select public.verify_sensitive_action('${receiptUser}','${receiptProof}',clock_timestamp());`,
+  );
+  const preparedOperation = JSON.parse(
+    sql(
+      `select public.prepare_account_deletion('${receiptUser}','${receiptProof}','${receiptHash}');`,
+    ),
+  );
+  const operationId = preparedOperation.operationId;
+  const statusQuery = `select public.get_account_deletion_status('${operationId}','${receiptHash}');`;
+  const claimRace = await Promise.all(
+    [1, 2].map(() =>
+      concurrentSql(
+        `select public.start_account_deletion('${receiptUser}','${receiptProof}','${operationId}');`,
+      ),
+    ),
+  );
+  assert.deepEqual(claimRace.sort(), ['f', 't']);
+  await holdTransaction(`delete from auth.users where id='${receiptUser}'`, async () => {
+    assert.equal(sql(statusQuery), 'pending', 'uncommitted deletion is never reported as deleted');
+  });
+  assert.equal(sql(statusQuery), 'pending', 'rollback leaves operation pending');
+  await holdTransaction(
+    `delete from auth.users where id='${receiptUser}'`,
+    async () => {
+      assert.equal(sql(statusQuery), 'pending');
+    },
+    true,
+  );
+  assert.equal(sql(statusQuery), 'deleted');
+  assert.equal(sql(statusQuery), 'deleted');
+  assert.equal(
+    sql(
+      `select count(*) from public.account_deletion_operations where id='${operationId}' and user_id is null and challenge_id is null;`,
+    ),
+    '1',
+  );
+  sql(
+    `update public.account_deletion_operations set expires_at=clock_timestamp()-interval '25 hours' where id='${operationId}';`,
+  );
+  await holdTransaction(
+    `select id from public.account_deletion_operations where id='${operationId}' for update`,
+    async () => {
+      assert.equal(sql('select public.cleanup_account_deletion_operations();'), '0');
+    },
+  );
+  assert.equal(sql('select public.cleanup_account_deletion_operations();'), '1');
+  console.log(
+    'PASS receipts: hash/ownership/expiry/permissions, duplicate claim race, status during delete commit/rollback, cascade survival/PII removal, repeated status and locked TTL cleanup',
+  );
 
   stage = 'Auth startup';
   run(
@@ -236,12 +386,37 @@ try {
   sql(
     `begin; set local "request.jwt.claim.sub"='${account.id}'; select public.complete_parent_onboarding('Isolated Auth',60,'1234'); commit;`,
   );
+  const authProof = sql(
+    `select (public.begin_sensitive_action('${account.id}','delete_account','isolated','${randomUUID()}')).id;`,
+  );
+  sql(`select public.verify_sensitive_action('${account.id}','${authProof}',clock_timestamp());`);
+  const authOperation = JSON.parse(
+    sql(`select public.prepare_account_deletion('${account.id}','${authProof}','${receiptHash}');`),
+  );
+  assert.equal(
+    sql(
+      `select public.start_account_deletion('${account.id}','${authProof}','${authOperation.operationId}');`,
+    ),
+    't',
+  );
   const removal = await localFetch(`${base}/admin/users/${account.id}`, {
     method: 'DELETE',
     headers: adminHeaders,
     body: JSON.stringify({ should_soft_delete: false }),
   });
   assert.equal(removal.status, 200);
+  assert.equal(
+    sql(
+      `select public.get_account_deletion_status('${authOperation.operationId}','${receiptHash}');`,
+    ),
+    'deleted',
+  );
+  assert.equal(
+    sql(
+      `select count(*) from public.account_deletion_operations where id='${authOperation.operationId}' and user_id is null and challenge_id is null;`,
+    ),
+    '1',
+  );
   assert.notEqual((await localFetch(`${base}/user`, { headers: userHeaders })).status, 200);
   const refresh = await localFetch(`${base}/token?grant_type=refresh_token`, {
     method: 'POST',

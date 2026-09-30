@@ -121,6 +121,7 @@ const imports = {
     },
   },
   '@/features/notifications/storage': {
+    registerDeletionCleanup: () => {},
     removePreferences: async (id) => {
       assert.equal(id, 'user');
       persisted = null;

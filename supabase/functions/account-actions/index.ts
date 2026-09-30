@@ -3,6 +3,7 @@ import { createRemoteJWKSet } from 'npm:jose@6.1.0';
 
 import { ActionError, createHandler } from './core.ts';
 import { verifyGoogleToken } from './google-proof.ts';
+import { generateReceipt, hashReceipt } from './receipt.ts';
 
 import type { Actor, Challenge } from './core.ts';
 
@@ -62,8 +63,26 @@ if (!enabled || !url || !key || !audience) {
       verify: (actor, id, at) =>
         rpc('verify_sensitive_action', { ...args(actor, id), p_auth_time: at }),
       cancel: (actor, id) => rpc('cancel_sensitive_action', args(actor, id)),
-      consumeDelete: (actor, id) =>
-        rpc('consume_sensitive_action', { ...args(actor, id), p_purpose: 'delete_account' }),
+      async prepareDelete(actor, id) {
+        const receipt = generateReceipt();
+        const operation = await rpc('prepare_account_deletion', {
+          p_user_id: actor.id,
+          p_challenge_id: id,
+          p_receipt_hash: await hashReceipt(receipt),
+        });
+        return { ...operation, receipt };
+      },
+      consumeDelete: (actor, id, operationId) =>
+        rpc('start_account_deletion', {
+          p_user_id: actor.id,
+          p_challenge_id: id,
+          p_operation_id: operationId,
+        }),
+      deletionStatus: async (operationId, receipt) =>
+        rpc('get_account_deletion_status', {
+          p_operation_id: operationId,
+          p_receipt_hash: await hashReceipt(receipt),
+        }),
       resetPin: (actor, id, pin) =>
         rpc('reset_parent_pin_with_proof', { ...args(actor, id), p_new_pin: pin }),
       async deleteUser(actor) {

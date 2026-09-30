@@ -15,6 +15,7 @@ import {
 } from '@/features/notifications/reconcile';
 import {
   readPreferences,
+  registerDeletionCleanup,
   removePreferences,
   writePreferences,
 } from '@/features/notifications/storage';
@@ -209,23 +210,29 @@ export function NotificationProvider({ children }: PropsWithChildren) {
       throw error;
     });
   };
-  const clearDeletedAccount = async (id: string) => {
-    if (currentScope.current && currentScope.current !== id) throw new Error('Account changed');
-    // Invalidate running reconciliation before draining queued settings/ledger writes.
-    currentScope.current = null;
-    setReady(false);
-    setTap(null);
-    setGateRequest(0);
-    await run(async () => {
-      if (currentScope.current && currentScope.current !== id) {
-        await removePreferences(id);
-        throw new Error('Account changed');
-      }
-      const results = await Promise.allSettled([clearNotices(port), removePreferences(id)]);
-      if (results.some((result) => result.status === 'rejected'))
-        throw new Error('Cleanup incomplete');
-    });
-  };
+  const clearDeletedAccount = useCallback(
+    async (id: string) => {
+      if (currentScope.current && currentScope.current !== id) throw new Error('Account changed');
+      // Invalidate running reconciliation before draining queued settings/ledger writes.
+      currentScope.current = null;
+      setReady(false);
+      setTap(null);
+      setGateRequest(0);
+      await run(async () => {
+        if (currentScope.current && currentScope.current !== id) {
+          await removePreferences(id);
+          throw new Error('Account changed');
+        }
+        const results = await Promise.allSettled([clearNotices(port), removePreferences(id)]);
+        if (results.some((result) => result.status === 'rejected'))
+          throw new Error('Cleanup incomplete');
+      });
+    },
+    [run],
+  );
+  useEffect(() => {
+    registerDeletionCleanup(clearDeletedAccount);
+  }, [clearDeletedAccount]);
   return (
     <NotificationContext.Provider
       value={{

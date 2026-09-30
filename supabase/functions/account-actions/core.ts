@@ -26,6 +26,56 @@ export class ActionError extends Error {
   }
 }
 
+export const MAX_REQUEST_BYTES = 16000;
+
+function checkRequestHeaders(request: Request) {
+  const length = request.headers.get('content-length');
+  if (length !== null && (!/^\d+$/.test(length) || !Number.isSafeInteger(Number(length))))
+    throw new ActionError(400, 'INVALID_REQUEST');
+  if (length !== null && Number(length) > MAX_REQUEST_BYTES)
+    throw new ActionError(413, 'REQUEST_TOO_LARGE');
+  if (
+    request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json'
+  )
+    throw new ActionError(415, 'JSON_REQUIRED');
+  const encoding = request.headers.get('content-encoding');
+  if (encoding && encoding.toLowerCase() !== 'identity')
+    throw new ActionError(415, 'JSON_REQUIRED');
+}
+
+export async function readSmallJson(request: Request): Promise<Record<string, unknown>> {
+  checkRequestHeaders(request);
+  const reader = request.body?.getReader();
+  if (!reader) throw new ActionError(400, 'INVALID_REQUEST');
+  const bytes = new Uint8Array(MAX_REQUEST_BYTES);
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value.byteLength > MAX_REQUEST_BYTES - size) {
+        await reader.cancel().catch(() => {});
+        throw new ActionError(413, 'REQUEST_TOO_LARGE');
+      }
+      bytes.set(value, size);
+      size += value.byteLength;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const declared = request.headers.get('content-length');
+  if (declared !== null && Number(declared) !== size) throw new ActionError(400, 'INVALID_REQUEST');
+  try {
+    const body = JSON.parse(
+      new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, size)),
+    );
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error();
+    return body;
+  } catch {
+    throw new ActionError(400, 'INVALID_REQUEST');
+  }
+}
+
 export function validateGoogleClaims(
   claims: GoogleClaims,
   challenge: Challenge,
@@ -62,7 +112,15 @@ export type Dependencies = {
   verifyGoogle(token: string): Promise<GoogleClaims>;
   verify(actor: Actor, id: string, at: string): Promise<boolean>;
   cancel(actor: Actor, id: string): Promise<boolean>;
-  consumeDelete(actor: Actor, id: string): Promise<boolean>;
+  prepareDelete(
+    actor: Actor,
+    id: string,
+  ): Promise<{ operationId: string; receipt: string; expiresAt: string }>;
+  consumeDelete(actor: Actor, id: string, operationId: string): Promise<boolean>;
+  deletionStatus(
+    operationId: string,
+    receipt: string,
+  ): Promise<'pending' | 'deleted' | 'failed' | 'expired'>;
   deleteUser(actor: Actor): Promise<void>;
   resetPin(actor: Actor, id: string, pin: string): Promise<boolean>;
   audience: string;
@@ -79,24 +137,29 @@ export function createHandler(deps: Dependencies) {
       });
     try {
       if (request.method !== 'POST') throw new ActionError(405, 'METHOD_NOT_ALLOWED');
+      if (new URL(request.url).pathname.endsWith('/account-actions/status')) {
+        const body = await readSmallJson(request);
+        if (
+          Object.keys(body).some((key) => !['operationId', 'receipt'].includes(key)) ||
+          typeof body.operationId !== 'string' ||
+          !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.operationId) ||
+          typeof body.receipt !== 'string' ||
+          !/^[0-9a-f]{64}$/.test(body.receipt)
+        )
+          return response({ status: 'expired' });
+        return response({ status: await deps.deletionStatus(body.operationId, body.receipt) });
+      }
       const bearer = request.headers.get('authorization')?.match(/^Bearer ([^\s]+)$/i)?.[1];
       if (!bearer) throw new ActionError(401, 'AUTH_REQUIRED');
+      checkRequestHeaders(request);
       const actor = await deps.authenticate(bearer);
-      const raw = await request.text();
-      if (raw.length > 16000) throw new ActionError(413, 'INVALID_REQUEST');
-      let body: Record<string, unknown>;
-      try {
-        body = JSON.parse(raw);
-      } catch {
-        throw new ActionError(400, 'INVALID_REQUEST');
-      }
-      if (!body || typeof body !== 'object' || Array.isArray(body))
-        throw new ActionError(400, 'INVALID_REQUEST');
+      const body = await readSmallJson(request);
       const keys: Record<string, string[]> = {
         begin: ['action', 'purpose'],
         verify: ['action', 'id', 'idToken'],
         cancel: ['action', 'id'],
-        delete: ['action', 'id'],
+        prepare_delete: ['action', 'id'],
+        delete: ['action', 'id', 'operationId'],
         reset_pin: ['action', 'id', 'newPin'],
       };
       const action = typeof body.action === 'string' ? body.action : '';
@@ -140,7 +203,13 @@ export function createHandler(deps: Dependencies) {
           throw new ActionError(403, 'REAUTH_REQUIRED');
         return response({ status: 'pin_reset' });
       }
-      if (!(await deps.consumeDelete(actor, body.id)))
+      if (action === 'prepare_delete') return response(await deps.prepareDelete(actor, body.id));
+      if (
+        typeof body.operationId !== 'string' ||
+        !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.operationId)
+      )
+        throw new ActionError(400, 'INVALID_REQUEST');
+      if (!(await deps.consumeDelete(actor, body.id, body.operationId)))
         throw new ActionError(403, 'REAUTH_REQUIRED');
       // Claim first, fail closed on admin failure. Retrying needs a NEW reauthentication.
       await deps.deleteUser(actor);

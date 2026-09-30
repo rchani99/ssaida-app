@@ -5,6 +5,15 @@ import { defaultSettings, parseTime } from '@/features/notifications/types';
 import type { DeliveryLedger, NotificationSettings } from '@/features/notifications/types';
 
 const key = (userId: string) => `ssaida.notifications.v1:${userId}`;
+let deletionDrain: ((userId: string) => Promise<void>) | null = null;
+// Retain the last provider's drain across unmount so in-flight ledger writes finish before erase.
+// A new provider replaces this reference; it never contains auth tokens or PINs.
+export function registerDeletionCleanup(drain: (userId: string) => Promise<void>) {
+  deletionDrain = drain;
+}
+export async function drainDeletionCleanup(userId: string) {
+  if (deletionDrain) await deletionDrain(userId);
+}
 export function removePreferences(userId: string) {
   return AsyncStorage.removeItem(key(userId));
 }

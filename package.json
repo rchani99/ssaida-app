@@ -47,6 +47,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "test": "node scripts/run-regressions.mjs",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo start --ios",

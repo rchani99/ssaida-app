@@ -166,6 +166,10 @@ assert.deepEqual(handles(false, ['a']), [false, false, false]);
 console.log(
   'PASS UI: hiding guidance preserves eligible drag handles; single item and RETRY stay locked',
 );
+if (process.argv.includes('--ui-only')) {
+  console.log('SKIP DB: --ui-only');
+  process.exit(0);
+}
 try {
   execFileSync('docker', ['inspect', '-f', '{{.State.Running}}', 'supabase_db_ssaida-app'], {
     encoding: 'utf8',

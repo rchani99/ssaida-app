@@ -176,6 +176,10 @@ console.log(
   'PASS production UI/API: only clicked task submitted, other draft retained, double press blocked, partial validation, error retry and RETRY payload',
 );
 
+if (process.argv.includes('--ui-only')) {
+  console.log('SKIP DB: --ui-only');
+  process.exit(0);
+}
 for (const file of [
   'parent_single_confirmation.sql',
   'sprint_1_planning_override.sql',

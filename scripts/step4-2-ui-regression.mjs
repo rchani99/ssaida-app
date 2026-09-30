@@ -638,6 +638,7 @@ const notificationSettings = harness(
   'src/features/notifications/notification-settings-panel.tsx',
   'NotificationSettingsPanel',
   {
+    './notification-time-field': { NotificationTimeField: 'NotificationTimeField' },
     '@/features/notifications/notification-context': {
       useNotifications: () => ({
         settings: notificationDefaults,
@@ -671,11 +672,9 @@ assert.equal(savedNotifications, undefined);
 assert.ok(text(notificationSettings.render()).includes('24시간 형식'));
 nodes(notificationSettings.render())
   .find(
-    (node) =>
-      node.type === 'TextInput' &&
-      node.props.accessibilityLabel === '부모 확인시간 알림 시간 (24시간 HH:MM)',
+    (node) => node.type === 'NotificationTimeField' && node.props.label === '부모 확인시간 알림',
   )
-  .props.onChangeText('20:30');
+  .props.onChange('20:30');
 assert.equal(savedNotifications, undefined, 'time edits remain draft until save');
 button(notificationSettings.render(), '알림 설정 저장').onPress();
 await new Promise((resolve) => setImmediate(resolve));

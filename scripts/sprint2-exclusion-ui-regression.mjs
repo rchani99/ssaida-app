@@ -358,6 +358,7 @@ const session = load('src/features/learning/screens/study-session-screen.tsx', {
     useLocalSearchParams: () => ({ taskId: 'excluded' }),
   },
   'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+  '@/features/learning/components/completion-reward': { CompletionReward: 'CompletionReward' },
   '@/design-system/tokens': { colors: {}, radius: {}, sizing: {}, spacing: {} },
   '@/shared/components/screen-message': { ScreenMessage: 'Message' },
   '@/features/learning/hooks/use-learning': {

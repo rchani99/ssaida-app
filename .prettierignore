@@ -2,3 +2,4 @@ node_modules
 .expo
 dist
 pnpm-lock.yaml
+supabase/.temp/

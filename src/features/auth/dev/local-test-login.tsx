@@ -2,26 +2,14 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { isDevelopmentEndpoint } from '@/config/environment-policy';
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 export function isLocalTestLoginAllowed() {
   if (!__DEV__ || process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN !== 'true') return false;
-  try {
-    const url = new URL(process.env.EXPO_PUBLIC_SUPABASE_URL ?? '');
-    return (
-      (url.protocol === 'http:' && ['127.0.0.1', 'localhost', '10.0.2.2'].includes(url.hostname)) ||
-      (process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN === 'true' &&
-        url.origin === 'https://ffnxodulitwzuqswlaga.supabase.co' &&
-        !url.username &&
-        !url.password &&
-        url.pathname === '/' &&
-        !url.search &&
-        !url.hash)
-    );
-  } catch {
-    return false;
-  }
+  if ((process.env.EXPO_PUBLIC_APP_ENV ?? 'development') !== 'development') return false;
+  return isDevelopmentEndpoint(process.env.EXPO_PUBLIC_SUPABASE_URL);
 }
 
 export function LocalTestLogin() {

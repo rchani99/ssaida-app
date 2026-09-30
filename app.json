@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ssaida-app",
+    "name": "쌓이다",
     "slug": "ssaida-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,8 @@
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.ssaida.app"
+      "bundleIdentifier": "com.ssaida.app",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.ssaida.app"
+      "package": "com.ssaida.app",
+      "versionCode": 1
     },
     "web": {
       "output": "static",

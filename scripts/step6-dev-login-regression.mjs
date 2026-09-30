@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 
 import ts from 'typescript';
 
+import policy from '../src/config/environment-policy.js';
+
 const slots = [];
 let cursor = 0;
 let calls = 0;
@@ -11,6 +13,7 @@ let fail = true;
 let submitted;
 const jsx = (type, props) => ({ type, props });
 const mocks = {
+  '@/config/environment-policy': policy,
   react: {
     useState: (initial) => {
       const i = cursor++;
@@ -68,6 +71,7 @@ const file = 'src/features/auth/dev/local-test-login.tsx';
 const dev = load(file, true);
 const original = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const originalFlag = process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN;
+const originalEnvironment = process.env.EXPO_PUBLIC_APP_ENV;
 const flatten = (tree) =>
   !tree || typeof tree !== 'object'
     ? []
@@ -91,6 +95,7 @@ const button = (label) =>
   flatten(render()).find((n) => n.type === 'Pressable' && text(n) === label).props;
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 try {
+  process.env.EXPO_PUBLIC_APP_ENV = 'development';
   delete process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN;
   process.env.EXPO_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321';
   assert.equal(dev.isLocalTestLoginAllowed(), false);
@@ -115,6 +120,9 @@ try {
   assert.equal(dev.isLocalTestLoginAllowed(), false);
   process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN = 'true';
   assert.equal(dev.isLocalTestLoginAllowed(), true);
+  process.env.EXPO_PUBLIC_APP_ENV = 'production';
+  assert.equal(dev.isLocalTestLoginAllowed(), false);
+  process.env.EXPO_PUBLIC_APP_ENV = 'development';
   assert.equal(load(file, false).isLocalTestLoginAllowed(), false);
   process.env.EXPO_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321';
   assert.equal(load(file, false).isLocalTestLoginAllowed(), false);
@@ -147,6 +155,8 @@ try {
     'PASS DEV login: release module guard, local and explicit DEV allowlist, production blocked, normal password Auth, cleared inputs, generic errors',
   );
 } finally {
+  if (originalEnvironment === undefined) delete process.env.EXPO_PUBLIC_APP_ENV;
+  else process.env.EXPO_PUBLIC_APP_ENV = originalEnvironment;
   if (original === undefined) delete process.env.EXPO_PUBLIC_SUPABASE_URL;
   else process.env.EXPO_PUBLIC_SUPABASE_URL = original;
   if (originalFlag === undefined) delete process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN;

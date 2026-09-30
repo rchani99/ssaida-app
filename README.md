@@ -88,6 +88,10 @@ Supabase Dashboard의 Google provider 화면에 표시되는 callback URL이 Goo
 
 ## 앱 환경 변수
 
+DEV/production 변수와 차단 규칙은 [빌드 환경 문서](docs/build-environments.md)를 따릅니다.
+아래 기존 변수는 development 전용입니다. production은 `EXPO_PUBLIC_APP_ENV=production`과
+별도 `EXPO_PUBLIC_PRODUCTION_SUPABASE_*` 변수가 필요하며 DEV 값으로 fallback하지 않습니다.
+
 ```powershell
 Copy-Item .env.example .env
 ```
@@ -95,7 +99,9 @@ Copy-Item .env.example .env
 `.env`를 실제 값으로 수정합니다.
 
 ```dotenv
-EXPO_PUBLIC_SUPABASE_URL=https://<PROJECT_REF>.supabase.co
+EXPO_PUBLIC_APP_ENV=development
+EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN=false
+EXPO_PUBLIC_SUPABASE_URL=https://<DEV_PROJECT_REF>.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<PUBLISHABLE_KEY>
 EXPO_PUBLIC_AUTH_REDIRECT_URI=ssaida://auth/callback
 ```
@@ -213,4 +219,10 @@ Windows 네이티브 빌드 환경과 재현 명령은 [Step 6.1 빌드 문서](
 pnpm typecheck
 pnpm lint
 pnpm format:check
+pnpm test
 ```
+
+`pnpm test`는 UI·로직 회귀 스크립트를 모두 실행하고 하나라도 실패하면 실패 코드로 종료합니다.
+DB 전용 스크립트 5개와 혼합 스크립트의 DB 부분은 명시적으로 제외합니다. DB 회귀는 로컬
+Docker/Supabase가 준비된 환경에서 해당 스크립트를 `--ui-only` 없이 별도로 실행해야 합니다.
+패키지 매니저 없이도 `node scripts/run-regressions.mjs`로 같은 검사를 실행할 수 있습니다.

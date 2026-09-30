@@ -1,0 +1,22 @@
+{
+  "cli": { "appVersionSource": "remote" },
+  "build": {
+    "development": {
+      "environment": "development",
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN": "false"
+      },
+      "android": { "gradleCommand": ":app:assembleDebug" },
+      "ios": { "buildConfiguration": "Debug", "simulator": true }
+    },
+    "production": {
+      "environment": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": { "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN": "false" },
+      "android": { "buildType": "app-bundle" }
+    }
+  }
+}

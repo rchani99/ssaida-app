@@ -25,6 +25,7 @@ export function LearningButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
       style={[
@@ -43,7 +44,7 @@ export function LearningButton({
         },
         variant === 'neutral' && { backgroundColor: dashboardTokens.colors.background },
         compact && {
-          minHeight: 40,
+          minHeight: dashboardTokens.icon.touchMin,
           maxWidth: '100%',
           flexShrink: 1,
           borderRadius: dashboardTokens.radius.normal,
@@ -134,13 +135,14 @@ export const learningStyles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   button: {
     minHeight: sizing.buttonHeight,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primaryLight,
     borderRadius: radius.button,
   },
-  buttonText: { fontSize: 15, fontWeight: '700', color: colors.primaryDark },
+  buttonText: { fontSize: 15, fontWeight: '700', color: colors.primaryDark, textAlign: 'center' },
   choice: {
     padding: spacing.md,
     borderWidth: 1,
@@ -149,7 +151,8 @@ export const learningStyles = StyleSheet.create({
   },
   selected: { backgroundColor: colors.primaryLight, borderColor: colors.primary },
   input: {
-    height: sizing.buttonHeight,
+    minHeight: sizing.buttonHeight,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,

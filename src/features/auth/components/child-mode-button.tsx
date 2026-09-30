@@ -34,7 +34,11 @@ export function ChildModeButton({ dashboard = false }: { dashboard?: boolean } =
 }
 
 const styles = StyleSheet.create({
-  button: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md },
+  button: {
+    minHeight: dashboardTokens.icon.touchMin,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
   label: { color: colors.primaryDark, fontSize: 14, fontWeight: '700' },
   dashboardPill: {
     flexDirection: 'row',

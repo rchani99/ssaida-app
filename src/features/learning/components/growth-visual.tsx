@@ -71,13 +71,20 @@ const styles = StyleSheet.create({
     backgroundColor: reward.mint,
   },
   art: {
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 232,
     gap: spacing.md,
   },
   detail: { alignSelf: 'stretch', alignItems: 'center', gap: spacing.sm },
-  halo: { width: 210, height: 200, alignItems: 'center', justifyContent: 'center' },
+  halo: {
+    width: '100%',
+    maxWidth: 210,
+    aspectRatio: 210 / 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sparkle: { position: 'absolute', right: 4, top: 8, fontSize: 28, color: reward.butterInk },
   nest: { width: 156, height: 16, borderRadius: 80, backgroundColor: reward.mintBorder },
   spot: {

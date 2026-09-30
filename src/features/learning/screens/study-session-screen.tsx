@@ -102,7 +102,11 @@ export function StudySessionScreen() {
               if (canComplete)
                 completeTask.mutate(task.id, { onSuccess: () => setCompletedHere(task.id) });
             }}
-            style={styles.primaryButton}
+            style={[
+              styles.primaryButton,
+              (startTask.isPending || completeTask.isPending || (!canStart && !canComplete)) &&
+                styles.disabledButton,
+            ]}
           >
             {startTask.isPending || completeTask.isPending ? (
               <ActivityIndicator color={colors.card} />
@@ -126,11 +130,17 @@ export function StudySessionScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, justifyContent: 'space-between', gap: spacing.xl, padding: spacing.lg },
-  copy: { alignItems: 'center', gap: spacing.md, paddingTop: 72 },
+  container: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    gap: spacing.xl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+  },
+  copy: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.xl },
   eyebrow: { color: colors.primary, fontSize: 14, fontWeight: '700' },
   title: { color: colors.textPrimary, fontSize: 30, fontWeight: '800', textAlign: 'center' },
-  detail: { color: colors.textPrimary, fontSize: 24, fontWeight: '700' },
+  detail: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', textAlign: 'center' },
   minutes: { color: colors.textSecondary, fontSize: 15 },
   waiting: {
     gap: spacing.sm,
@@ -141,13 +151,16 @@ const styles = StyleSheet.create({
   waitingTitle: { color: colors.primaryDark, fontSize: 20, fontWeight: '800', textAlign: 'center' },
   waitingText: { color: colors.textSecondary, fontSize: 15, textAlign: 'center' },
   primaryButton: {
-    height: sizing.buttonHeight,
+    minHeight: sizing.buttonHeight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
     borderRadius: radius.button,
     backgroundColor: colors.primary,
   },
-  primaryButtonText: { color: colors.card, fontSize: 17, fontWeight: '800' },
+  primaryButtonText: { color: colors.card, fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  disabledButton: { opacity: 0.5 },
   error: { color: colors.error, fontSize: 13, textAlign: 'center' },
 });

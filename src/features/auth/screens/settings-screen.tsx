@@ -23,6 +23,7 @@ import {
 
 import { dashboardIconProps } from '@/design-system/icons';
 import { dashboardTokens as t } from '@/design-system/tokens';
+import { AccountManagementInfoPanel } from '@/features/auth/components/account-management-info-panel';
 import { ChildSettingsPanel } from '@/features/auth/components/child-settings-panel';
 import { ParentPinSettingsPanel } from '@/features/auth/components/parent-pin-settings-panel';
 import { ServiceInfoPanel } from '@/features/auth/components/service-info-panel';
@@ -35,7 +36,16 @@ import { NotificationSettingsPanel } from '@/features/notifications/notification
 
 import type { LucideIcon } from 'lucide-react-native';
 
-type Detail = 'rest' | 'notifications' | 'target' | 'pin' | 'child' | 'service' | null;
+type Detail =
+  | 'rest'
+  | 'notifications'
+  | 'target'
+  | 'pin'
+  | 'child'
+  | 'service'
+  | 'deletion'
+  | 'recovery'
+  | null;
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 
 export function SettingsScreen() {
@@ -96,6 +106,8 @@ export function SettingsScreen() {
       pin: <ParentPinSettingsPanel />,
       child: <ChildSettingsPanel />,
       service: <ServiceInfoPanel />,
+      deletion: <AccountManagementInfoPanel kind="deletion" />,
+      recovery: <AccountManagementInfoPanel kind="recovery" />,
     } satisfies Record<Exclude<Detail, null>, React.ReactNode>;
     return (
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -157,6 +169,19 @@ export function SettingsScreen() {
           description="현재 PIN 확인 후 변경"
           value="사용 중"
           onPress={() => setDetail('pin')}
+        />
+        <SettingsRow
+          icon={ShieldCheck}
+          label="부모 PIN 재설정"
+          description="PIN을 잊었을 때"
+          value="준비 중"
+          onPress={() => setDetail('recovery')}
+        />
+        <SettingsRow
+          icon={UserRound}
+          label="계정 삭제"
+          value="준비 중"
+          onPress={() => setDetail('deletion')}
           last
         />
       </SettingsSection>
@@ -172,7 +197,13 @@ export function SettingsScreen() {
       </SettingsSection>
 
       <SettingsSection title="앱 정보">
-        <SettingsRow icon={Info} label="서비스 정보" onPress={() => setDetail('service')} last />
+        <SettingsRow
+          icon={Info}
+          label="서비스 정보"
+          description="앱 버전 · 정책 · 문의"
+          onPress={() => setDetail('service')}
+          last
+        />
       </SettingsSection>
 
       <SettingsSection title="기타">

@@ -12,6 +12,8 @@ export default function ParentTabsLayout() {
         tabBarLabelPosition: 'below-icon',
         tabBarLabelStyle: { ...t.typography.caption, textAlign: 'center' },
         headerRight: () => <ChildModeButton dashboard />,
+        headerTitleAlign: 'left',
+        headerTitleStyle: t.typography.header,
         headerStyle: { backgroundColor: colors.card },
         headerTintColor: colors.textPrimary,
         tabBarActiveTintColor: colors.primary,

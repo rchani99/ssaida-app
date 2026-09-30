@@ -1,4 +1,5 @@
 import { ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { dashboardTokens as t } from '@/design-system/tokens';
 import { RecordsHistoryList } from '@/features/learning/components/records-history-list';
@@ -23,14 +24,18 @@ export function RecordsHistoryScreen() {
     );
   const tasks = records.data ?? [];
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <RecordsHistoryList groups={groupHistory(tasks, today)} tasks={tasks} />
-    </ScrollView>
+    <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <RecordsHistoryList groups={groupHistory(tasks, today)} tasks={tasks} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: t.colors.background },
   container: {
+    flexGrow: 1,
     padding: t.layout.screenPadding,
     gap: t.spacing[16],
     backgroundColor: t.colors.background,

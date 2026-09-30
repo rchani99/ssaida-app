@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     minWidth: 0,
-    minHeight: 40,
+    minHeight: t.icon.touchMin,
     paddingVertical: t.spacing[8],
     paddingHorizontal: t.spacing[4],
     alignItems: 'center',

@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     backgroundColor: colors.card,
   },
-  sectionTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '800' },
+  sectionTitle: { ...t.typography.section, color: t.colors.textPrimary },
   editSection: {
     borderWidth: 0,
     borderTopWidth: 1,
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   segment: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   segmentButton: {
     flex: 1,
-    minHeight: 44,
+    minHeight: t.icon.touchMin,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: t.spacing[12],
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing[4] },
   chip: {
-    minHeight: 40,
+    minHeight: t.icon.touchMin,
     justifyContent: 'center',
     paddingHorizontal: t.spacing[12],
     paddingVertical: t.spacing[4],
@@ -749,6 +749,9 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: { color: colors.card, fontSize: 16, fontWeight: '700' },
   secondaryButton: {
+    minHeight: t.icon.touchMin,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderWidth: 1,
@@ -782,7 +785,7 @@ const styles = StyleSheet.create({
   itemActionButton: {
     flex: 1,
     minWidth: 0,
-    minHeight: 40,
+    minHeight: t.icon.touchMin,
     paddingHorizontal: t.spacing[8],
     paddingVertical: 2,
     alignItems: 'center',

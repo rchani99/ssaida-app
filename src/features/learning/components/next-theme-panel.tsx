@@ -84,6 +84,7 @@ export function NextThemePanel({ childId, themeCode }: { childId: string; themeC
           {albums.some((query) => query.isError) && (
             <Pressable
               accessibilityRole="button"
+              style={styles.cancel}
               onPress={() => {
                 albums.forEach((query) => {
                   void query.refetch();
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 40,
-    height: 40,
+    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.card,
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: radius.button,
   },
-  primaryText: { color: colors.card, fontWeight: '700', fontSize: 16 },
+  primaryText: { color: colors.card, fontWeight: '700', fontSize: 16, textAlign: 'center' },
   cancel: { minHeight: sizing.buttonHeight, justifyContent: 'center', alignItems: 'center' },
   error: { color: colors.error, fontSize: 14 },
 });

@@ -233,9 +233,14 @@ export function ParentModeButton({
 }
 
 const styles = StyleSheet.create({
-  open: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  open: {
+    minHeight: t.icon.touchMin,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   openText: { color: colors.primaryDark, fontSize: 15, fontWeight: '700' },
-  compactOpen: { minHeight: 44, justifyContent: 'center', paddingVertical: 0 },
+  compactOpen: { paddingVertical: 0 },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

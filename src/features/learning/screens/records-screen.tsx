@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   },
   todayButton: {
     alignSelf: 'center',
-    minHeight: 36,
+    minHeight: t.icon.touchMin,
     justifyContent: 'center',
     paddingHorizontal: t.spacing[16],
     borderRadius: t.radius.pill,

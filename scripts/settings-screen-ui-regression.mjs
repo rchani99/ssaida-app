@@ -105,6 +105,9 @@ const mocks = {
   '@/features/auth/components/child-settings-panel': { ChildSettingsPanel: 'ChildPanel' },
   '@/features/auth/components/parent-pin-settings-panel': { ParentPinSettingsPanel: 'PinPanel' },
   '@/features/auth/components/service-info-panel': { ServiceInfoPanel: 'ServicePanel' },
+  '@/features/auth/components/account-management-info-panel': {
+    AccountManagementInfoPanel: 'AccountInfoPanel',
+  },
   '@/features/learning/components/daily-target-settings-panel': {
     DailyTargetSettingsPanel: 'TargetPanel',
   },
@@ -192,6 +195,53 @@ for (const [label, title, panel] of [
 }
 
 child = { data: { id: 'child', name: '민준', rest_weekdays: [1, 3], daily_target_minutes: 90 } };
+for (const [label, kind] of [
+  ['계정 삭제', 'deletion'],
+  ['부모 PIN 재설정', 'recovery'],
+]) {
+  press(label);
+  const panel = nodes(render()).find((node) => node.type === 'AccountInfoPanel');
+  assert.equal(panel?.props.kind, kind);
+  assert.equal(hardwareBackHandler(), true);
+  assert.ok(text(render()).includes(label));
+  assert.equal(signOutCalls, 0);
+}
+
+// Render the real informational panels: unavailable services must not expose executable actions.
+for (const [file, name, props] of [
+  ['account-management-info-panel', 'AccountManagementInfoPanel', { kind: 'deletion' }],
+  ['account-management-info-panel', 'AccountManagementInfoPanel', { kind: 'recovery' }],
+  ['service-info-panel', 'ServiceInfoPanel', {}],
+]) {
+  const loaded = { exports: {} };
+  new Function(
+    'require',
+    'module',
+    'exports',
+    ts.transpileModule(readFileSync(`src/features/auth/components/${file}.tsx`, 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+    }).outputText,
+  )(
+    (id) => {
+      if (id === 'expo-constants')
+        return { __esModule: true, default: { expoConfig: { version: '1.2.3' } } };
+      if (id === '@/features/learning/components/learning-controls') return { learningStyles: {} };
+      if (id in mocks) return mocks[id];
+      throw new Error(`Unexpected dependency: ${id}`);
+    },
+    loaded,
+    loaded.exports,
+  );
+  const info = loaded.exports[name](props);
+  assert.equal(nodes(info).filter((node) => node.props?.onPress).length, 0);
+  if (props.kind === 'deletion') assert.ok(text(info).includes('삭제를 요청할 수 없어요'));
+  if (props.kind === 'recovery') assert.ok(text(info).includes('PIN은 초기화되지 않아요'));
+  if (name === 'ServiceInfoPanel') {
+    for (const label of ['1.2.3', '개인정보처리방침', '이용약관', '문의하기'])
+      assert.ok(text(info).includes(label));
+    assert.ok(!text(info).includes('https://'));
+  }
+}
 notification = { ...notification, settings: { notificationsEnabled: false } };
 tree = render();
 assert.ok(text(tree).includes('월·수'));

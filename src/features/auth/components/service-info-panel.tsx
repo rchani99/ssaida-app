@@ -16,9 +16,14 @@ export function ServiceInfoPanel() {
         <Text style={s.text}>앱 버전</Text>
         <Text style={s.secondary}>{version}</Text>
       </View>
-      <Text style={s.secondary}>
-        등록된 개인정보처리방침 및 이용약관 링크가 없어 이번 화면에는 표시하지 않아요.
-      </Text>
+      {['개인정보처리방침', '이용약관', '문의하기'].map((label) => (
+        <View key={label} style={s.card}>
+          <Text style={s.text}>{label}</Text>
+          <Text style={s.secondary}>
+            {label === '문의하기' ? '문의 연락처 준비 중' : '정책 문서 준비 중'}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }

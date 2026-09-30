@@ -13,7 +13,11 @@ import {
   pruneSettings,
   reconcile,
 } from '@/features/notifications/reconcile';
-import { readPreferences, writePreferences } from '@/features/notifications/storage';
+import {
+  readPreferences,
+  removePreferences,
+  writePreferences,
+} from '@/features/notifications/storage';
 import { defaultSettings } from '@/features/notifications/types';
 import { queryClient } from '@/lib/query-client';
 import { refreshToday } from '@/shared/hooks/use-today';
@@ -205,6 +209,23 @@ export function NotificationProvider({ children }: PropsWithChildren) {
       throw error;
     });
   };
+  const clearDeletedAccount = async (id: string) => {
+    if (currentScope.current && currentScope.current !== id) throw new Error('Account changed');
+    // Invalidate running reconciliation before draining queued settings/ledger writes.
+    currentScope.current = null;
+    setReady(false);
+    setTap(null);
+    setGateRequest(0);
+    await run(async () => {
+      if (currentScope.current && currentScope.current !== id) {
+        await removePreferences(id);
+        throw new Error('Account changed');
+      }
+      const results = await Promise.allSettled([clearNotices(port), removePreferences(id)]);
+      if (results.some((result) => result.status === 'rejected'))
+        throw new Error('Cleanup incomplete');
+    });
+  };
   return (
     <NotificationContext.Provider
       value={{
@@ -220,6 +241,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         gateRequest,
         requestGate: () => setGateRequest(Date.now()),
         clearGate: () => setGateRequest(0),
+        clearDeletedAccount,
       }}
     >
       {children}

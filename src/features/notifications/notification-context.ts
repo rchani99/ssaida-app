@@ -19,6 +19,7 @@ export type NotificationContextValue = {
   gateRequest: number;
   requestGate(): void;
   clearGate(): void;
+  clearDeletedAccount(userId: string): Promise<void>;
 };
 export const NotificationContext = createContext<NotificationContextValue | null>(null);
 export function useNotifications() {

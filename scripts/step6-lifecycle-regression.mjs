@@ -121,6 +121,10 @@ const imports = {
     },
   },
   '@/features/notifications/storage': {
+    removePreferences: async (id) => {
+      assert.equal(id, 'user');
+      persisted = null;
+    },
     readPreferences: async () => {
       reads++;
       return structuredClone(persisted);
@@ -280,6 +284,30 @@ resolveSnapshot({ childId: 'child' });
 await settle();
 assert.equal(syncs, beforeLogout, 'late old-account response cannot schedule');
 assert.equal(value.settings.notificationsEnabled, false);
+// A confirmed deletion fences in-flight reconciliation and drains it before erasing preferences.
+delaySnapshot = false;
+auth = {
+  isLoading: false,
+  session: { user: { id: 'user' } },
+  profile: { onboarding_completed: true },
+};
+dirty = true;
+await settle();
+delaySnapshot = true;
+mutationListener({ type: 'updated', action: { type: 'success' } });
+timer();
+await settle();
+const beforeDeletion = syncs;
+const beforeDeletionClear = clears;
+const deletionCleanup = value.clearDeletedAccount('user');
+await settle();
+resolveSnapshot({ childId: 'child' });
+await deletionCleanup;
+await settle();
+assert.equal(syncs, beforeDeletion, 'late response after deletion must not reschedule');
+assert.equal(persisted, null, 'account-scoped preferences removed after queued writes');
+assert.ok(clears > beforeDeletionClear);
+assert.equal(value.ready, false);
 slots.forEach((slot) => slot?.cleanup?.());
 console.log(
   'PASS lifecycle: date-only interval, midnight sync, resume retry, mutation sync, enable/disable, logout during in-flight query',

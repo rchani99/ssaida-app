@@ -5,6 +5,9 @@ import { defaultSettings, parseTime } from '@/features/notifications/types';
 import type { DeliveryLedger, NotificationSettings } from '@/features/notifications/types';
 
 const key = (userId: string) => `ssaida.notifications.v1:${userId}`;
+export function removePreferences(userId: string) {
+  return AsyncStorage.removeItem(key(userId));
+}
 export async function readPreferences(
   userId: string,
 ): Promise<{ settings: NotificationSettings; ledger: DeliveryLedger }> {

@@ -177,14 +177,32 @@ Step 4.1 선언 수정은 원격 적용 전이었기 때문에 허용한 예외�
 
 ### BLOCKER BEFORE PRODUCTION
 
-- Parent PIN recovery requires parent re-authentication before production release.
-  Google 재인증 등 부모 재인증을 포함한 복구가 필요합니다. 아이/부모가 같은 Auth 세션을
-  사용하므로 단순 authenticated `reset_parent_pin` RPC는 제공하지 않습니다.
+- Parent PIN recovery requires parent re-authentication before production release. The server contract below is implemented locally; the Google proof adapter and UI activation are still release blockers.
+
+Google 재인증 등 부모 재인증을 포함한 복구가 필요합니다. 아이/부모가 같은 Auth 세션을
+사용하므로 단순 authenticated `reset_parent_pin` RPC는 제공하지 않습니다.
+
 - production collectible catalog data migration required
 - all six themes require active catalog data
 - without it select_collection_theme fails
   `supabase/seed.sql`은 local/dev 전용이며 remote `db push`로 적용되지 않습니다.
   DEV_* 항목을 production으로 옮기지 않고, 확정 콘텐츠로 별도 data migration을 준비합니다.
+
+### Sensitive account actions: server contract (not deployed)
+
+- `supabase/functions/account-actions` is the only Admin boundary. It is disabled unless `ACCOUNT_ACTIONS_ENABLED=true` and `ACCOUNT_ACTIONS_GOOGLE_CLIENT_ID` is set. Supabase supplies its server-only URL/Admin key; never put these credentials in the app. `verify_jwt=false` delegates verification to the handler, which calls Auth `getUser(bearer)` for **every** action; no anonymous operation is supported.
+- `begin { purpose }` accepts `delete_account` or `reset_parent_pin`, derives the user and Google identity from Auth, and returns `{ id, nonce, expiresAt, audience }`. Issuance is serialized per user, limited to once per 30 seconds, and cancels earlier unconsumed challenges. Challenges expire after five minutes.
+- `verify { id, idToken }` requires a Google RS256 ID token with the configured audience, issuer, matching linked Google `sub`, nonce, and fresh `auth_time`. The signature is checked against Google's fixed JWKS endpoint. Request the essential `auth_time` claim in a dedicated provider reauthentication flow. Missing/stale claims fail closed; `iat`, refresh, consent or account selection alone do not prove reauthentication. Existing `google-oauth.ts` produces a Supabase session and is **not** a proof adapter. Google accounts without a linked identity and DEV email-only users cannot use this contract.
+- `cancel { id }` invalidates a pending/verified challenge. Wait for its acknowledgement before reporting cancellation. An operation already claimed for execution cannot be cancelled. A lost cancellation response requires retry or waiting for expiry.
+- `delete { id }` consumes only a verified deletion challenge, then calls the server Admin hard-delete API on the authenticated user. Consumption and Auth deletion are separate transactions: failed/ambiguous deletion requires a new proof or a confirmed support reconciliation, never an automatic retry or premature local wipe. No raw SQL deletion of Auth users is exposed by the app.
+- `reset_pin { id, newPin }` atomically consumes only a PIN-recovery challenge, stores bcrypt cost 12, and resets failed attempts/lockout. The existing current-PIN change RPC is unchanged. New proof functions and the challenge table are unavailable to `anon`, `authenticated` and PUBLIC; only the Edge service role can access them. No PIN/provider token is persisted or logged by this implementation. Configure production gateway/database logs so request bodies and RPC parameters are not captured.
+- Deletion cascades through profile, PIN credential, child, study items, plans/tasks, collectibles and growth events; the shared catalog remains. Access/refresh checks at Auth reject deleted users. Previously minted JWTs can remain cryptographically valid until expiry; existing owner RLS loses the deleted profile, but shared catalog reads are not immediate JWT revocation. Do not claim all issued tokens are instantly invalidated. Storage objects, backups and operational log retention need a separate release review.
+- `createAccountActions`/`createSensitiveActionFlow` are memory-only client foundations, deliberately not connected to settings/PIN dialogs yet. After a confirmed delete, use `NotificationProvider.clearDeletedAccount` to fence/drain notification writes, cancel/dismiss notices and remove that user's AsyncStorage preferences; cancel/clear query cache, reset mode, perform local Auth sign-out, and route to login through `onSignedOut`. Deletion failure does not clean local state. Cleanup failure is reported separately from remote deletion and requires retry/restart handling before UI activation.
+- Still required: verified Google native/browser proof acquisition with nonce and fresh authentication, final confirmation UI, the child PIN recovery entry, cleanup-resume UX, policy/support links and real provider/device end-to-end checks. Current settings remain informational; this change does not make deletion/recovery release-ready. No external settings or deployment were performed.
+- Proof expiry is enforced on every use; physical record cleanup currently occurs on that user's next issuance for records expired more than a day ago. Before release, schedule server-side deletion of expired proof rows for inactive users too, and document retention. Expiry alone does not erase the stored Google subject.
+- Local verification: `node scripts/account-actions-regression.mjs`; `node scripts/account-actions-db-regression.mjs` creates/removes dedicated Docker PostgreSQL/Auth resources and never reads `.env`; Deno `check index.ts` and `test google-proof_test.ts` from the function directory. App TypeScript excludes Deno functions, so both checks are required. The normal regression runner skips the isolated DB test.
+
+References: [Supabase Admin deletion](https://supabase.com/docs/reference/javascript/auth-admin-deleteuser), [Google ID token / auth_time contract](https://developers.google.com/identity/openid-connect/reference), [Supabase deletion/session behavior](https://supabase.com/docs/guides/auth/managing-user-data).
 
 ### PIN 및 후속 UI
 

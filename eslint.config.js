@@ -8,6 +8,13 @@ module.exports = [
   ...queryPlugin.configs['flat/recommended'],
   prettierConfig,
   {
+    files: ['supabase/functions/**/*.ts'],
+    rules: {
+      // Node's resolver cannot resolve Deno npm: specifiers; deno check validates these.
+      'import/no-unresolved': ['error', { ignore: ['^npm:'] }],
+    },
+  },
+  {
     rules: {
       'import/order': [
         'error',

@@ -4,6 +4,11 @@
 # working directory name when running `supabase init`.
 project_id = "ssaida-app"
 
+# Handler verifies the bearer with Auth.getUser, including deletion/revocation state.
+# No browser callback or unauthenticated action is exposed.
+[functions.account-actions]
+verify_jwt = false
+
 [api]
 enabled = true
 # Port to use for the API URL.

@@ -13,7 +13,9 @@ import {
 
 import { dashboardIconProps } from '@/design-system/icons';
 import { colors, dashboardTokens as t, radius, sizing, spacing } from '@/design-system/tokens';
+import { SensitiveAccountPanel } from '@/features/auth/components/sensitive-account-panel';
 import { useAuth } from '@/features/auth/hooks/use-auth';
+import { sensitiveActionsEnabled } from '@/features/auth/services/sensitive-actions-enabled';
 import { verifyParentPin } from '@/features/auth/services/verify-parent-pin';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useAppModeStore } from '@/store/app-mode.store';
@@ -31,6 +33,7 @@ export function ParentModeButton({
   const [signingOut, setSigningOut] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recovering, setRecovering] = useState(false);
   const attempt = useRef(0);
   const submitting = useRef(false);
   useEffect(
@@ -49,6 +52,7 @@ export function ParentModeButton({
     setError(null);
     setPending(false);
     setConfirmingLogout(false);
+    setRecovering(false);
   };
 
   const submit = async () => {
@@ -136,7 +140,9 @@ export function ParentModeButton({
       >
         <View style={styles.overlay}>
           <View style={styles.panel} accessibilityViewIsModal>
-            {confirmingLogout ? (
+            {recovering && sensitiveActionsEnabled() ? (
+              <SensitiveAccountPanel kind="recovery" onClose={() => setRecovering(false)} />
+            ) : confirmingLogout ? (
               <>
                 <Text style={styles.title}>로그아웃할까요?</Text>
                 <Text style={styles.help}>다시 로그인해야 사용할 수 있어요.</Text>
@@ -208,8 +214,24 @@ export function ParentModeButton({
                   <Text style={styles.openText}>취소</Text>
                 </Pressable>
                 <Text style={styles.help}>
-                  PIN을 잊었다면 로그아웃할 수 있어요. PIN은 초기화되지 않아요.
+                  {sensitiveActionsEnabled()
+                    ? 'PIN을 잊었다면 재설정을 요청할 수 있어요. 72시간 뒤에 새 PIN을 정해요.'
+                    : 'PIN을 잊었다면 로그아웃할 수 있어요. PIN은 초기화되지 않아요.'}
                 </Text>
+                {sensitiveActionsEnabled() && (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={pending || signingOut}
+                    style={styles.cancel}
+                    onPress={() => {
+                      setPin('');
+                      setError(null);
+                      setRecovering(true);
+                    }}
+                  >
+                    <Text style={styles.openText}>PIN을 잊으셨나요?</Text>
+                  </Pressable>
+                )}
                 <Pressable
                   accessibilityRole="button"
                   disabled={pending || signingOut}

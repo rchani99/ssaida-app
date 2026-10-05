@@ -28,15 +28,16 @@ const recoveryModule = load('src/features/auth/services/account-recovery-state.t
 const { createSensitiveActionFlow } = load('src/features/auth/services/sensitive-action-flow.ts');
 const user = '11111111-1111-4111-8111-111111111111';
 const now = Date.now();
+// The waiting period has already elapsed in these fixtures; this suite covers the receipt
+// and response-loss machinery that runs after it.
 const challenge = {
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   user_id: user,
-  google_sub: 'isolated',
-  nonce: 'isolated-nonce',
   purpose: 'delete_account',
   status: 'pending',
-  created_at: new Date(now).toISOString(),
-  expires_at: new Date(now + 300000).toISOString(),
+  created_at: new Date(now - 14 * 86400000).toISOString(),
+  available_at: new Date(now - 1000).toISOString(),
+  expires_at: new Date(now + 604800000).toISOString(),
 };
 const capabilities = new Set(Array.from({ length: 128 }, generateReceipt));
 assert.equal(capabilities.size, 128);
@@ -49,7 +50,6 @@ try {
   for (const mode of ['normal', 'response-lost', 'post-commit-error', 'status-wins-response']) {
     let authenticated = 0;
     let remoteDeleted = false;
-    let verified = false;
     let consumed = false;
     let deletionCalls = 0;
     let disk = null;
@@ -60,29 +60,17 @@ try {
     let lastReceipt;
     const operations = new Map();
     const handler = createHandler({
-      audience: 'isolated',
       now: () => now,
       authenticate: async () => {
         authenticated++;
         if (remoteDeleted) throw new ActionError(401, 'AUTH_REQUIRED');
         return { id: user, googleSub: 'isolated' };
       },
-      begin: async () => challenge,
-      get: async () => challenge,
-      verifyGoogle: async () => ({
-        sub: 'isolated',
-        nonce: challenge.nonce,
-        auth_time: Math.floor(now / 1000),
-        iat: Math.floor(now / 1000),
-      }),
-      verify: async () => {
-        verified = true;
-        return true;
-      },
+      request: async () => challenge,
       cancel: async () => true,
       resetPin: async () => false,
       prepareDelete: async () => {
-        assert.ok(verified);
+        assert.ok(Date.parse(challenge.available_at) <= now, 'waiting period elapsed');
         lastReceipt = {
           operationId: crypto.randomUUID(),
           receipt: generateReceipt(),
@@ -96,7 +84,7 @@ try {
         return lastReceipt;
       },
       consumeDelete: async (_actor, _id, operationId) => {
-        if (!verified || consumed || !operations.has(operationId)) return false;
+        if (consumed || !operations.has(operationId)) return false;
         consumed = true;
         return true;
       },
@@ -202,7 +190,6 @@ try {
     });
     const actions = createAccountActions({ clearNotifications: async () => {} });
     await actions.begin('delete_account');
-    await actions.verify('isolated-fresh-provider-proof');
     if (mode === 'normal' || mode === 'status-wins-response') {
       assert.equal(await actions.execute(), 'deleted');
       assert.equal(disk, null);

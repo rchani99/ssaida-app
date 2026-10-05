@@ -177,10 +177,10 @@ try {
   stage = 'concurrent consumption';
   const user = randomUUID();
   sql(`insert into auth.users(id) values('${user}');`);
-  const id = sql(
-    `select (public.begin_sensitive_action('${user}','delete_account','isolated','${randomUUID()}')).id;`,
+  const id = sql(`select (public.request_sensitive_action('${user}','delete_account')).id;`);
+  sql(
+    `update public.sensitive_action_challenges set created_at=clock_timestamp()-interval '15 days', available_at=clock_timestamp()-interval '1 second' where id='${id}' and user_id='${user}';`,
   );
-  sql(`select public.verify_sensitive_action('${user}','${id}',clock_timestamp());`);
   const race = await Promise.all(
     [1, 2].map(() =>
       concurrentSql(`select public.consume_sensitive_action('${user}','${id}','delete_account');`),
@@ -246,10 +246,10 @@ try {
   const receiptHash = createHash('sha256').update(randomBytes(32)).digest('hex');
   sql(`insert into auth.users(id) values('${receiptUser}');`);
   const receiptProof = sql(
-    `select (public.begin_sensitive_action('${receiptUser}','delete_account','isolated','${randomUUID()}')).id;`,
+    `select (public.request_sensitive_action('${receiptUser}','delete_account')).id;`,
   );
   sql(
-    `select public.verify_sensitive_action('${receiptUser}','${receiptProof}',clock_timestamp());`,
+    `update public.sensitive_action_challenges set created_at=clock_timestamp()-interval '15 days', available_at=clock_timestamp()-interval '1 second' where id='${receiptProof}' and user_id='${receiptUser}';`,
   );
   const preparedOperation = JSON.parse(
     sql(
@@ -387,9 +387,11 @@ try {
     `begin; set local "request.jwt.claim.sub"='${account.id}'; select public.complete_parent_onboarding('Isolated Auth',60,'1234'); commit;`,
   );
   const authProof = sql(
-    `select (public.begin_sensitive_action('${account.id}','delete_account','isolated','${randomUUID()}')).id;`,
+    `select (public.request_sensitive_action('${account.id}','delete_account')).id;`,
   );
-  sql(`select public.verify_sensitive_action('${account.id}','${authProof}',clock_timestamp());`);
+  sql(
+    `update public.sensitive_action_challenges set created_at=clock_timestamp()-interval '15 days', available_at=clock_timestamp()-interval '1 second' where id='${authProof}' and user_id='${account.id}';`,
+  );
   const authOperation = JSON.parse(
     sql(`select public.prepare_account_deletion('${account.id}','${authProof}','${receiptHash}');`),
   );

@@ -21,6 +21,7 @@ const text = (value) =>
         ? text(value.props.children)
         : '';
 let signOutCalls = 0;
+let sensitiveEnabled = false;
 let hardwareBackHandler;
 let navigationOptions = {};
 let child = { data: { id: 'child', name: '민준', rest_weekdays: [7], daily_target_minutes: 60 } };
@@ -44,6 +45,10 @@ const icons = Object.fromEntries(
   ].map((name) => [name, name]),
 );
 const mocks = {
+  '@/features/auth/services/sensitive-actions-enabled': {
+    sensitiveActionsEnabled: () => sensitiveEnabled,
+  },
+  '@/features/auth/components/sensitive-account-panel': { SensitiveAccountPanel: 'SensitivePanel' },
   react: {
     useCallback: (callback) => callback,
     useLayoutEffect: (callback) => callback(),
@@ -208,6 +213,16 @@ for (const [label, kind] of [
 }
 
 // Render the real informational panels: unavailable services must not expose executable actions.
+sensitiveEnabled = true;
+for (const [label, kind] of [
+  ['계정 삭제', 'deletion'],
+  ['부모 PIN 재설정', 'recovery'],
+]) {
+  press(label);
+  assert.equal(nodes(render()).find((node) => node.type === 'SensitivePanel')?.props.kind, kind);
+  hardwareBackHandler();
+}
+sensitiveEnabled = false;
 for (const [file, name, props] of [
   ['account-management-info-panel', 'AccountManagementInfoPanel', { kind: 'deletion' }],
   ['account-management-info-panel', 'AccountManagementInfoPanel', { kind: 'recovery' }],

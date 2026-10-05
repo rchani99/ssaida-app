@@ -10,10 +10,13 @@ begin
     not has_function_privilege('service_role','public.get_account_deletion_status(uuid,text)','EXECUTE') then
     raise exception 'Unsafe receipt privileges'; end if;
   insert into auth.users(id) values(owner_id),(other_id);
-  proof_id := (public.begin_sensitive_action(owner_id,'delete_account','isolated',pg_catalog.gen_random_uuid()::text)).id;
-  perform public.verify_sensitive_action(owner_id,proof_id,pg_catalog.clock_timestamp());
-  other_proof := (public.begin_sensitive_action(other_id,'delete_account','isolated',pg_catalog.gen_random_uuid()::text)).id;
-  perform public.verify_sensitive_action(other_id,other_proof,pg_catalog.clock_timestamp());
+  proof_id := (public.request_sensitive_action(owner_id,'delete_account')).id;
+  other_proof := (public.request_sensitive_action(other_id,'delete_account')).id;
+  -- Fixture only: stand in for the elapsed waiting period these receipt paths run after.
+  update public.sensitive_action_challenges
+    set created_at=pg_catalog.clock_timestamp()-interval '15 days',
+        available_at=pg_catalog.clock_timestamp()-interval '1 second'
+    where id in (proof_id,other_proof);
   op:=public.prepare_account_deletion(owner_id,proof_id,hash);
   other_op:=public.prepare_account_deletion(other_id,other_proof,pg_catalog.repeat('b',64));
   if public.get_account_deletion_status((op->>'operationId')::uuid,hash)<>'pending' then raise exception 'Prepared status'; end if;

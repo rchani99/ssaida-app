@@ -556,6 +556,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      list_pending_sensitive_actions: {
+        Args: Record<string, never>;
+        Returns: { purpose: string; available_at: string; expires_at: string }[];
+      };
       verify_parent_pin: { Args: { parent_pin: string }; Returns: boolean };
     };
     Enums: {

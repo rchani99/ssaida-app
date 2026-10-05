@@ -1,9 +1,11 @@
 import { DefaultTheme, SplashScreen, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { View } from 'react-native';
 
 import { colors } from '@/design-system/tokens';
 import { ChildModeButton } from '@/features/auth/components/child-mode-button';
+import { PendingAccountActionBanner } from '@/features/auth/components/pending-account-action-banner';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { LoadingScreen } from '@/features/auth/screens/loading-screen';
 import { NotificationRouting } from '@/features/notifications/notification-routing';
@@ -40,7 +42,8 @@ function RootNavigator() {
   }
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
+      {isAuthenticated && !needsOnboarding && <PendingAccountActionBanner />}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={!isAuthenticated}>
           <Stack.Screen name="(auth)" />
@@ -99,7 +102,7 @@ function RootNavigator() {
         <Stack.Screen name="auth/callback" />
       </Stack>
       {isAuthenticated && !needsOnboarding && <NotificationRouting />}
-    </>
+    </View>
   );
 }
 

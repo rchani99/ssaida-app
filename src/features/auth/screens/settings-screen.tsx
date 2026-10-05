@@ -26,8 +26,10 @@ import { dashboardTokens as t } from '@/design-system/tokens';
 import { AccountManagementInfoPanel } from '@/features/auth/components/account-management-info-panel';
 import { ChildSettingsPanel } from '@/features/auth/components/child-settings-panel';
 import { ParentPinSettingsPanel } from '@/features/auth/components/parent-pin-settings-panel';
+import { SensitiveAccountPanel } from '@/features/auth/components/sensitive-account-panel';
 import { ServiceInfoPanel } from '@/features/auth/components/service-info-panel';
 import { useAuth } from '@/features/auth/hooks/use-auth';
+import { sensitiveActionsEnabled } from '@/features/auth/services/sensitive-actions-enabled';
 import { DailyTargetSettingsPanel } from '@/features/learning/components/daily-target-settings-panel';
 import { RestWeekdaysPanel } from '@/features/learning/components/rest-weekdays-panel';
 import { useCurrentChild } from '@/features/learning/hooks/use-learning';
@@ -106,8 +108,16 @@ export function SettingsScreen() {
       pin: <ParentPinSettingsPanel />,
       child: <ChildSettingsPanel />,
       service: <ServiceInfoPanel />,
-      deletion: <AccountManagementInfoPanel kind="deletion" />,
-      recovery: <AccountManagementInfoPanel kind="recovery" />,
+      deletion: sensitiveActionsEnabled() ? (
+        <SensitiveAccountPanel kind="deletion" onClose={() => setDetail(null)} />
+      ) : (
+        <AccountManagementInfoPanel kind="deletion" />
+      ),
+      recovery: sensitiveActionsEnabled() ? (
+        <SensitiveAccountPanel kind="recovery" onClose={() => setDetail(null)} />
+      ) : (
+        <AccountManagementInfoPanel kind="recovery" />
+      ),
     } satisfies Record<Exclude<Detail, null>, React.ReactNode>;
     return (
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -174,13 +184,13 @@ export function SettingsScreen() {
           icon={ShieldCheck}
           label="부모 PIN 재설정"
           description="PIN을 잊었을 때"
-          value="준비 중"
+          value={sensitiveActionsEnabled() ? undefined : '준비 중'}
           onPress={() => setDetail('recovery')}
         />
         <SettingsRow
           icon={UserRound}
           label="계정 삭제"
-          value="준비 중"
+          value={sensitiveActionsEnabled() ? undefined : '준비 중'}
           onPress={() => setDetail('deletion')}
           last
         />

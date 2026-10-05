@@ -155,7 +155,12 @@ let verdict = 'invalid';
 let mode = 'child';
 let route = null;
 let logoutCalls = 0;
+let sensitiveEnabled = false;
 const pin = harness('src/features/auth/components/parent-mode-button.tsx', 'ParentModeButton', {
+  '@/features/auth/services/sensitive-actions-enabled': {
+    sensitiveActionsEnabled: () => sensitiveEnabled,
+  },
+  '@/features/auth/components/sensitive-account-panel': { SensitiveAccountPanel: 'SensitivePanel' },
   'expo-router': {
     useRouter: () => ({
       replace: (value) => {
@@ -187,6 +192,13 @@ const pin = harness('src/features/auth/components/parent-mode-button.tsx', 'Pare
     },
   },
 });
+sensitiveEnabled = true;
+button(pin.render({ compact: true }), '부모님 모드').onPress();
+button(pin.render(), 'PIN을 잊으셨나요?').onPress();
+const recoveryPanel = nodes(pin.render()).find((node) => node.type === 'SensitivePanel');
+assert.equal(recoveryPanel?.props.kind, 'recovery');
+recoveryPanel.props.onClose();
+sensitiveEnabled = false;
 for (verdict of ['invalid', 'locked', 'valid']) {
   let tree = pin.render({ compact: true });
   button(tree, '부모님 모드').onPress();

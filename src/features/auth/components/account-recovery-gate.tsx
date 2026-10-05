@@ -12,18 +12,20 @@ import { ScreenMessage } from '@/shared/components/screen-message';
 // starts before a pending cleanup is finished. Errors keep this gate closed.
 export function AccountRecoveryGate({ children }: PropsWithChildren) {
   const [state, setState] = useState<
-    'loading' | 'clear' | 'unknown' | 'pending' | 'expired' | 'failed' | 'retry'
+    'loading' | 'clear' | 'complete' | 'unknown' | 'pending' | 'expired' | 'failed' | 'retry'
   >('loading');
   const generation = useRef(0);
+  const completed = useRef(false);
   const inspect = useCallback(async () => {
     const request = ++generation.current;
     try {
       const marker = await accountRecovery.read();
       if (request !== generation.current) return;
       if (!marker) {
-        setState('clear');
+        setState(completed.current ? 'complete' : 'clear');
         return;
       }
+      if (marker.phase === 'cleanup') completed.current = true;
       void SplashScreen.hideAsync();
       if (marker.phase === 'unconfirmed' && !marker.operation) {
         setState('unknown');
@@ -31,7 +33,10 @@ export function AccountRecoveryGate({ children }: PropsWithChildren) {
       }
       setState('loading');
       await accountRecovery.resume();
-      if (request === generation.current) setState('clear');
+      if (request === generation.current) {
+        completed.current = true;
+        setState('complete');
+      }
     } catch (error) {
       if (request !== generation.current) return;
       void SplashScreen.hideAsync();
@@ -72,31 +77,40 @@ export function AccountRecoveryGate({ children }: PropsWithChildren) {
       <ScreenMessage
         loading={state === 'loading'}
         message={
-          state === 'unknown'
-            ? '계정 삭제 결과 확인이 필요해요. 자동으로 다시 삭제 요청을 보내거나 기기 데이터를 지우지 않아요.'
-            : state === 'pending'
-              ? '서버에서 삭제 결과를 아직 확인하지 못했어요. 기기 데이터를 유지하며 나중에 다시 확인할 수 있어요.'
-              : state === 'expired'
-                ? '삭제 확인 영수증이 만료됐거나 확인할 수 없어요. 기기 데이터는 유지되며 지원을 통한 확인이 필요해요.'
-                : state === 'failed'
-                  ? '이 삭제 요청은 실행되지 않았어요. 기기 데이터는 유지되며 지원을 통한 확인이 필요해요.'
-                  : state === 'retry'
-                    ? '기기 데이터 정리가 완료되지 않았어요. 다시 시도해 주세요.'
-                    : '기기 데이터를 확인하고 있어요.'
+          state === 'complete'
+            ? '계정 삭제가 완료됐어요'
+            : state === 'unknown'
+              ? '계정 삭제 결과 확인이 필요해요. 자동으로 다시 삭제 요청을 보내거나 기기 데이터를 지우지 않아요.'
+              : state === 'pending'
+                ? '서버에서 삭제 결과를 아직 확인하지 못했어요. 기기 데이터를 유지하며 나중에 다시 확인할 수 있어요.'
+                : state === 'expired'
+                  ? '삭제 확인 영수증이 만료됐거나 확인할 수 없어요. 기기 데이터는 유지되며 지원을 통한 확인이 필요해요.'
+                  : state === 'failed'
+                    ? '이 삭제 요청은 실행되지 않았어요. 기기 데이터는 유지되며 지원을 통한 확인이 필요해요.'
+                    : state === 'retry'
+                      ? '기기 데이터 정리가 완료되지 않았어요. 다시 시도해 주세요.'
+                      : '기기 데이터를 확인하고 있어요.'
         }
         actionLabel={
-          state === 'retry'
-            ? '정리 다시 시도'
-            : ['pending', 'expired', 'failed'].includes(state)
-              ? '삭제 결과 다시 확인'
-              : undefined
+          state === 'complete'
+            ? '로그인 화면으로'
+            : state === 'retry'
+              ? '정리 다시 시도'
+              : ['pending', 'expired', 'failed'].includes(state)
+                ? '삭제 결과 다시 확인'
+                : undefined
         }
         onAction={
-          ['retry', 'pending', 'expired', 'failed'].includes(state)
+          state === 'complete'
             ? () => {
-                void inspect();
+                completed.current = false;
+                setState('clear');
               }
-            : undefined
+            : ['retry', 'pending', 'expired', 'failed'].includes(state)
+              ? () => {
+                  void inspect();
+                }
+              : undefined
         }
       />
     </View>

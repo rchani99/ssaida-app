@@ -81,6 +81,8 @@ const imports = {
                   : 'DELETE_RECEIPT_EXPIRED',
             );
           marker.phase = 'cleanup';
+          listener?.();
+          await Promise.resolve();
         }
         assert.equal(marker.phase, 'cleanup');
         if (failure) throw new Error('partial cleanup');
@@ -132,6 +134,12 @@ const restart = () => {
   render();
   assert.notEqual(tree, child, 'account providers must not mount before marker inspection');
 };
+const finish = async () => {
+  assert.equal(tree.props.children.props.message, '계정 삭제가 완료됐어요');
+  assert.equal(tree.props.children.props.actionLabel, '로그인 화면으로');
+  tree.props.children.props.onAction();
+  await settle();
+};
 restart();
 await settle();
 assert.equal(tree, child);
@@ -148,10 +156,12 @@ failure = false;
 tree.props.children.props.onAction();
 await settle();
 assert.equal(marker, null);
+await finish();
 assert.equal(tree, child);
 marker = { phase: 'cleanup' };
 restart();
 await settle();
+await finish();
 assert.equal(tree, child, 'confirmed startup marker resumes without any proof');
 marker = { phase: 'unconfirmed' };
 const before = resumes;
@@ -175,6 +185,7 @@ for (const status of ['pending', 'expired', 'failed']) {
 receiptStatus = 'deleted';
 foreground('active');
 await settle();
+await finish();
 assert.equal(tree, child, 'receipt confirmation on resume unlocks only after cleanup');
 assert.equal(marker, null);
 console.log(

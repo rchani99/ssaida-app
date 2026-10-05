@@ -4,7 +4,6 @@ import { createSensitiveActionFlow } from '@/features/auth/services/sensitive-ac
 import { registerDeletionCleanup } from '@/features/notifications/storage';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
-// Not wired into UI until the Google proof adapter and external configuration are verified.
 // clearNotifications must be NotificationProvider.clearDeletedAccount, which drains its queue.
 export function createAccountActions({
   clearNotifications,
@@ -49,7 +48,8 @@ export function createAccountActions({
             'AUTH_REQUIRED',
             'GOOGLE_IDENTITY_REQUIRED',
             'INVALID_REQUEST',
-            'REAUTH_REQUIRED',
+            'WAIT_REQUIRED',
+            'NOT_CANCELLABLE',
             'ACTION_UNAVAILABLE',
             'NOT_CONFIGURED',
             'REQUEST_TOO_LARGE',
@@ -59,7 +59,7 @@ export function createAccountActions({
           throw new Error(
             deleting
               ? '삭제 결과를 확인하지 못했어요. 기기 데이터는 유지됩니다.'
-              : '계정 작업을 완료하지 못했어요. 다시 인증해 주세요.',
+              : '계정 작업을 완료하지 못했어요. 대기 상태를 다시 확인해 주세요.',
           );
         }
         if (deleting) {
@@ -70,7 +70,7 @@ export function createAccountActions({
       } catch {
         // Persisted unconfirmed state survives response loss. Never infer deletion from 401 alone.
         throw new Error(
-          deleting ? '삭제 결과 또는 기기 정리 상태 확인이 필요해요.' : '다시 인증해 주세요.',
+          deleting ? '삭제 결과 또는 기기 정리 상태 확인이 필요해요.' : '다시 시도해 주세요.',
         );
       }
     },
@@ -80,3 +80,4 @@ export function createAccountActions({
     },
   });
 }
+export type AccountActions = ReturnType<typeof createAccountActions>;

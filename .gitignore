@@ -44,3 +44,11 @@ example
 # generated native folders
 /ios
 /android
+
+# Independently versioned Sites projects and generated delivery artifacts
+/sites/
+/outputs/
+
+# Local device test captures and fixtures
+/output/
+/device-screen.png

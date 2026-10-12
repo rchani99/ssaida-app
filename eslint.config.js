@@ -3,7 +3,7 @@ const expoConfig = require('eslint-config-expo/flat');
 const prettierConfig = require('eslint-config-prettier/flat');
 
 module.exports = [
-  { ignores: ['dist/**', '.expo/**'] },
+  { ignores: ['dist/**', '.expo/**', 'sites/**', 'outputs/**'] },
   ...expoConfig,
   ...queryPlugin.configs['flat/recommended'],
   prettierConfig,

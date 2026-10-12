@@ -1,7 +1,6 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { childCollectionTokens as reward, colors, spacing } from '@/design-system/tokens';
-import { CollectionAlbum } from '@/features/learning/components/collection-album';
 import { CollectionPanel } from '@/features/learning/components/collection-panel';
 import { ThemeAlbumBrowser } from '@/features/learning/components/theme-album-browser';
 import { useCollectionAlbum } from '@/features/learning/hooks/use-collection-album';
@@ -32,7 +31,7 @@ export function GardenScreen() {
           key={`${childQuery.data.id}-${childQuery.data.selected_collection_theme_code}`}
           childId={childQuery.data.id}
           currentTheme={childQuery.data.selected_collection_theme_code}
-          canSwitch={Boolean(albumQuery.data?.isComplete && !albumQuery.isError)}
+          isComplete={Boolean(albumQuery.data?.isComplete && !albumQuery.isError)}
         />
       ) : (
         <Text style={styles.theme}>나만의 테마</Text>
@@ -50,21 +49,13 @@ export function GardenScreen() {
             : undefined
         }
       />
-      {childQuery.data.selected_collection_theme_code &&
-        (albumQuery.isError ? (
-          <ScreenMessage
-            message="도감을 불러오지 못했어요."
-            actionLabel="다시 불러오기"
-            onAction={() => void albumQuery.refetch()}
-          />
-        ) : albumQuery.data ? (
-          <CollectionAlbum
-            key={`album-${childQuery.data.selected_collection_theme_code}`}
-            album={albumQuery.data}
-          />
-        ) : (
-          <Text style={styles.description}>도감을 불러오고 있어요.</Text>
-        ))}
+      {childQuery.data.selected_collection_theme_code && albumQuery.isError && (
+        <ScreenMessage
+          message="도감을 불러오지 못했어요."
+          actionLabel="다시 불러오기"
+          onAction={() => void albumQuery.refetch()}
+        />
+      )}
       {childQuery.data.pending_growth_points > 0 && (
         <View style={styles.pending}>
           <Text accessible={false} style={styles.pendingSymbol}>

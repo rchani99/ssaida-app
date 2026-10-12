@@ -38,12 +38,13 @@ const iconNames = [
   'House',
   'Leaf',
   'Settings',
-  'Sprout',
+  'Layers',
   'TriangleAlert',
 ];
 export function uiMocks(overrides) {
   if (overrides['react-native']) overrides['react-native'].StyleSheet ??= { create: (v) => v };
   return {
+
     '@/features/learning/components/collection-artwork': { CollectionArtwork: 'CollectionArtwork' },
     'lucide-react-native': Object.fromEntries(iconNames.map((name) => [name, name])),
     '@/design-system/icons': {

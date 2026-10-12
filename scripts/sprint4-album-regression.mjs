@@ -121,12 +121,13 @@ for (const theme of ['DINO', 'GEM']) {
   const keys = GardenScreen()
     .props.children.filter((child) => child?.key != null)
     .map((child) => child.key);
-  assert.equal(keys.length, 3);
+  assert.equal(keys.length, 2);
   assert.equal(new Set(keys).size, keys.length, 'Garden siblings must have unique keys');
-  assert.deepEqual(
-    keys,
-    [`child-${theme}`, `panel-${theme}`, `album-${theme}`],
-    'Both reset on theme change',
+  assert.deepEqual(keys, [`child-${theme}`, `panel-${theme}`], 'Both reset on theme change');
+  assert.equal(
+    nodes(GardenScreen()).filter((node) => node?.type === 'Album').length,
+    0,
+    'Item lists belong only in the unified theme album',
   );
 }
 console.log('PASS GardenScreen unique sibling keys and theme-change reset');

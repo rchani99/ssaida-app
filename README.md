@@ -188,10 +188,15 @@ Python과 Pillow가 있는 환경에서 아래 명령을 실행합니다.
 
 ```powershell
 python scripts/prepare-collection-assets.py 'C:\Users\rchani\Downloads\ssaida_collection_assets\assets\collection'
+./scripts/sync-dev-collection-catalog.ps1
 ```
 
-이 명령은 앱용 WebP, 정적 이미지 목록, 로컬 `supabase/seed.sql`을 생성합니다.
-이미지가 누락되면 파일을 덮어쓰기 전에 중단합니다.
+첫 명령은 폴더를 탐색해 앱용 WebP, 정적 이미지 목록, 로컬 `supabase/seed.sql`을 생성합니다.
+이미지가 누락된 아이템이 있으면 파일을 덮어쓰기 전에 중단합니다.
+두 번째 명령은 연결된 개발 프로젝트를 확인하고 새 DEV 항목만 등록합니다.
+기존 카탈로그 값, 성장 포인트, 완료·공개 기록은 덮어쓰지 않습니다.
+신규 DEV 항목의 성장 목표는 24포인트입니다. 새 이미지는 앱 빌드/업데이트에도 포함해야 합니다.
+정식 이름·목표 포인트를 가진 production 콘텐츠는 별도 data migration으로 준비합니다.
 
 ## 후속 작업
 

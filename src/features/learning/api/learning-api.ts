@@ -501,11 +501,11 @@ export async function selectCollectionTheme(themeCode: string) {
 export async function fetchCurrentCollectible(
   childId: string,
   themeCode: string | null,
-): Promise<ChildCollectible | null> {
+): Promise<(ChildCollectible & { collectible_catalog: { code: string } }) | null> {
   if (!themeCode) return null;
   const { data, error } = await getSupabaseClient()
     .from('child_collectibles')
-    .select('*')
+    .select('*,collectible_catalog(code)')
     .eq('child_id', childId)
     .eq('theme_code', themeCode)
     .or('status.eq.GROWING,and(status.eq.COMPLETED,revealed_at.is.null)')
@@ -521,7 +521,7 @@ export async function revealCollectible(collectibleId: string) {
     target_child_collectible_id: collectibleId,
   });
   throwLearningError('revealCollectible', error);
-  // Fetch identity only after the server has committed the explicit reveal.
+  // Fetch the name only after the server has committed the explicit reveal.
   const result = await getSupabaseClient()
     .from('child_collectibles')
     .select('collectible_catalog(name)')

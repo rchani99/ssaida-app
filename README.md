@@ -164,6 +164,26 @@ pnpm start
 인증 상태는 AuthProvider, child/parent UI 모드는 Zustand store에서 별도로 관리합니다.
 서버 데이터는 TanStack Query로 조회·무효화하며, 계획과 task 상태 변경은 공개 RPC를 사용합니다.
 
+## 컬렉션 이미지와 개발 카탈로그 추가
+
+테마별 수집 가능 개수는 DB의 활성 카탈로그에서 계산합니다. 3개나 6개로 제한하지 않으며,
+추가된 수집물도 기존 수집 기록을 유지한 채 도감과 테마 완료 여부에 반영합니다.
+완료했던 현재 테마에 새 아이템이 생기면 정원의 `다음 친구 키우기`로 이어서 시작합니다.
+
+원본 `assets/collection` 폴더에 아이템별 완성 PNG 1장과 성장 PNG 5장을 준비합니다.
+예를 들어 일곱 번째 동전은 `coin/coin_07/complete/coin_07.png`와
+`coin/coin_07/growth/growth_coin_07_01.png`부터 `_05.png`까지입니다.
+번호는 7 이상도 지원하며 테마별 아이템 개수가 서로 달라도 됩니다.
+
+Python과 Pillow가 있는 환경에서 아래 명령을 실행합니다.
+
+```powershell
+python scripts/prepare-collection-assets.py 'C:\Users\rchani\Downloads\ssaida_collection_assets\assets\collection'
+```
+
+이 명령은 앱용 WebP, 정적 이미지 목록, 로컬 `supabase/seed.sql`을 생성합니다.
+이미지가 누락되면 파일을 덮어쓰기 전에 중단합니다.
+
 ## 후속 작업
 
 ### Migration 수정 규칙

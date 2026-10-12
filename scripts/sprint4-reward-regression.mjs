@@ -79,6 +79,8 @@ const common = {
 };
 const { GrowthVisual } = load('src/features/learning/components/growth-visual.tsx', {
   ...common,
+  'expo-image': { Image: 'Image' },
+  '@/features/learning/utils/collection-artwork': { collectionArtwork: () => undefined },
   '@/features/learning/utils/completion-reward': rewardUtils,
 });
 const visualNodes = (tree) =>

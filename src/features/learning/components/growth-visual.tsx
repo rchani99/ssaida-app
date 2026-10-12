@@ -1,21 +1,25 @@
+import { Image } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { childCollectionTokens as reward, colors, spacing } from '@/design-system/tokens';
+import { collectionArtwork } from '@/features/learning/utils/collection-artwork';
 import { growthStage } from '@/features/learning/utils/completion-reward';
 
-// Identity-free placeholder. Future stage artwork belongs here; unrevealed
-// catalog names/images must never be passed into this component.
+// Growth artwork gradually shows the item; its name and final artwork wait for reveal.
 export function GrowthVisual({
   points,
   goal,
   ready,
+  artworkCode,
 }: {
   points: number;
   goal: number;
   ready: boolean;
+  artworkCode?: string;
 }) {
   const growth = growthStage(points, goal, ready);
   const size = 112 + growth.stage * 8;
+  const artwork = collectionArtwork(artworkCode)?.growth[growth.stage];
   return (
     <View style={styles.container} accessibilityLabel={`${growth.label}, 성장 ${growth.percent}%`}>
       <View
@@ -23,15 +27,25 @@ export function GrowthVisual({
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
-        <View style={styles.halo}>
-          <Text style={styles.sparkle}>✦</Text>
-          <View style={[styles.orb, { width: size, height: size * 1.12 }]}>
-            <View style={styles.spot} />
-            <View style={styles.smallSpot} />
-            <Text style={styles.symbol}>{ready ? '✦' : '?'}</Text>
+        {artwork ? (
+          <Image
+            source={artwork}
+            style={styles.growthImage}
+            contentFit="contain"
+            accessible={false}
+            recyclingKey={`${artworkCode}-${growth.stage}`}
+          />
+        ) : (
+          <View style={styles.halo}>
+            <Text style={styles.sparkle}>✦</Text>
+            <View style={[styles.orb, { width: size, height: size * 1.12 }]}>
+              <View style={styles.spot} />
+              <View style={styles.smallSpot} />
+              <Text style={styles.symbol}>{ready ? '✦' : '?'}</Text>
+            </View>
+            <View style={styles.nest} />
           </View>
-          <View style={styles.nest} />
-        </View>
+        )}
         <View style={styles.steps}>
           {[0, 1, 2, 3, 4].map((step) => (
             <View key={step} style={[styles.dot, step <= growth.stage && styles.filled]} />
@@ -63,6 +77,7 @@ export function GrowthVisual({
 }
 
 const styles = StyleSheet.create({
+  growthImage: { width: '100%', maxWidth: 240, height: 240 },
   container: {
     alignItems: 'center',
     gap: spacing.sm,

@@ -35,11 +35,11 @@ export async function fetchCollectionAlbum(childId: string, themeCode: string) {
   const revealedIds = owned
     .filter((item) => item.revealed_at && activeIds.has(item.collectible_catalog_id))
     .map((item) => item.collectible_catalog_id);
-  const names: { id: string; name: string }[] = [];
+  const names: { id: string; name: string; code: string }[] = [];
   for (let offset = 0; offset < revealedIds.length; offset += 200) {
     const result = await client
       .from('collectible_catalog')
-      .select('id,name')
+      .select('id,name,code')
       .eq('theme_code', themeCode)
       .eq('is_active', true)
       .in('id', revealedIds.slice(offset, offset + 200));

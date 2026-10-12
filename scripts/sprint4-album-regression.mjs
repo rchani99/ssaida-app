@@ -69,6 +69,23 @@ assert.ok(!JSON.stringify(album).includes('SECRET_IDENTITY'));
 assert.equal(buildCollectionAlbum([], owned, names).isComplete, false);
 assert.equal(buildCollectionAlbum([catalog[0]], owned, names).isComplete, true);
 
+// A previously completed album grows with its active catalog, without losing ownership.
+for (const total of [6, 9, 25, 501]) {
+  const expanded = Array.from({ length: total }, (_, i) => ({ id: `expanded-${i}` }));
+  const collected = expanded.slice(0, 3).map(({ id }) => ({
+    collectible_catalog_id: id,
+    revealed_at: '2026-10-09',
+    status: 'COMPLETED',
+    progress_points: 24,
+    growth_goal_snapshot: 24,
+  }));
+  const grown = buildCollectionAlbum(expanded, collected, []);
+  assert.equal(grown.total, total);
+  assert.equal(grown.collected, 3);
+  assert.equal(grown.isComplete, false);
+  assert.equal(grown.entries.filter((item) => item.state === 'locked').length, total - 3);
+}
+
 const jsx = (type, props) => ({ type, props });
 const native = new Proxy(
   { StyleSheet: { create: (styles) => styles } },
@@ -117,6 +134,7 @@ const { CollectionAlbum } = load('src/features/learning/components/collection-al
   'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
   'react-native': native,
   '@/design-system/tokens': tokens,
+  '@/features/learning/components/collection-artwork': { CollectionArtwork: 'CollectionArtwork' },
 });
 function nodes(tree) {
   if (tree == null || typeof tree === 'boolean') return [];
@@ -233,7 +251,11 @@ const learning = load('src/features/learning/api/learning-api.ts', {
 responses = [{ id: 'current', status: 'GROWING' }];
 requests.length = 0;
 await learning.fetchCurrentCollectible('child', 'DINO');
-assert.equal(requests[0].calls[0][1], '*', 'no pre-reveal name join');
+assert.equal(
+  requests[0].calls[0][1],
+  '*,collectible_catalog(code)',
+  'growth code only, no pre-reveal name join',
+);
 client.rpc = async () => ({ error: null });
 responses = [{ collectible_catalog: { name: '공개된 이름' } }];
 requests.length = 0;
@@ -265,8 +287,17 @@ const revealMutation = {
     if (revealSucceeds) callbacks.onSuccess('공개 결과 이름');
   },
 };
+let resumedTheme;
+const themeMutation = {
+  isPending: false,
+  isError: false,
+  mutate: (code) => {
+    resumedTheme = code;
+  },
+};
 const { CollectionPanel } = load('src/features/learning/components/collection-panel.tsx', {
   '@/features/learning/components/growth-visual': { GrowthVisual: 'GrowthVisual' },
+  '@/features/learning/components/collection-artwork': { CollectionArtwork: 'CollectionArtwork' },
   react: {
     useState(initial) {
       const index = cursor++;
@@ -292,7 +323,7 @@ const { CollectionPanel } = load('src/features/learning/components/collection-pa
   '@/features/learning/hooks/use-learning': {
     learningKeys: { all: ['learning'], child: ['learning', 'child'] },
     useCurrentCollectible: () => ({ data: currentItem }),
-    useSelectCollectionTheme: () => ({}),
+    useSelectCollectionTheme: () => themeMutation,
     useRevealCollectible: () => revealMutation,
   },
 });
@@ -333,6 +364,19 @@ assert.ok(text(renderPanel()).includes('아직 준비된 아이템'));
 assert.ok(!text(renderPanel()).includes('모두 만났어요'));
 panelProps.albumState = 'complete';
 assert.ok(text(renderPanel()).includes('모두 만났어요'));
+assert.ok(!text(renderPanel()).includes('다음 친구 키우기'));
+panelProps.albumState = 'incomplete';
+press(renderPanel(), '다음 친구 키우기');
+assert.equal(
+  resumedTheme,
+  'DINO',
+  'Expanded catalog resumes the same theme without resetting progress',
+);
+themeMutation.isPending = true;
+assert.ok(nodes(renderPanel()).find((node) => node.type === 'Pressable').props.disabled);
+themeMutation.isPending = false;
+themeMutation.isError = true;
+assert.ok(text(renderPanel()).includes('다시 시도해 주세요'));
 console.log(
   'PASS actual CollectionPanel reveal failure/success/name clearing/album+pending refresh/empty state',
 );

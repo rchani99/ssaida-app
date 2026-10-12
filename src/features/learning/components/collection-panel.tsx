@@ -9,6 +9,7 @@ import {
   sizing,
   spacing,
 } from '@/design-system/tokens';
+import { CollectionArtwork } from '@/features/learning/components/collection-artwork';
 import { GrowthVisual } from '@/features/learning/components/growth-visual';
 import {
   learningKeys,
@@ -39,7 +40,9 @@ export function CollectionPanel({
   const collectibleQuery = useCurrentCollectible(child.id, child.selected_collection_theme_code);
   const selectTheme = useSelectCollectionTheme();
   const reveal = useRevealCollectible();
-  const [revealed, setRevealed] = useState<{ id: string; name: string } | null>(null);
+  const [revealed, setRevealed] = useState<{ id: string; name: string; code?: string } | null>(
+    null,
+  );
   const collectibleId = collectibleQuery.data?.id;
   const [previousId, setPreviousId] = useState(collectibleId);
   if (previousId !== collectibleId) {
@@ -97,9 +100,7 @@ export function CollectionPanel({
     return (
       <View style={styles.panel}>
         <Text style={styles.badge}>새 친구 발견!</Text>
-        <Text accessible={false} style={styles.mascot}>
-          ✦
-        </Text>
+        <CollectionArtwork code={revealed.code} hero />
         <Text style={styles.title}>새 친구를 만났어요!</Text>
         <Text style={styles.revealed}>{revealed.name}</Text>
         <Pressable
@@ -133,6 +134,26 @@ export function CollectionPanel({
             ? '도감에서 모은 친구들을 만나보세요.'
             : '아래 수집 현황을 확인해 주세요.'}
         </Text>
+        {albumState === 'incomplete' && (
+          <Pressable
+            accessibilityRole="button"
+            disabled={selectTheme.isPending}
+            style={styles.primaryButton}
+            onPress={() => {
+              if (child.selected_collection_theme_code)
+                selectTheme.mutate(child.selected_collection_theme_code);
+            }}
+          >
+            {selectTheme.isPending ? (
+              <ActivityIndicator color={colors.card} />
+            ) : (
+              <Text style={styles.primaryButtonText}>다음 친구 키우기</Text>
+            )}
+          </Pressable>
+        )}
+        {selectTheme.isError && (
+          <Text style={styles.error}>친구를 키우기 시작하지 못했어요. 다시 시도해 주세요.</Text>
+        )}
       </View>
     );
   }
@@ -150,6 +171,7 @@ export function CollectionPanel({
         points={collectible.progress_points}
         goal={collectible.growth_goal_snapshot}
         ready={isReady}
+        artworkCode={collectible.collectible_catalog?.code}
       />
       {!isReady && (
         <>
@@ -164,7 +186,11 @@ export function CollectionPanel({
             setRevealed(null);
             reveal.mutate(collectible.id, {
               onSuccess: (name) => {
-                setRevealed({ id: collectible.id, name });
+                setRevealed({
+                  id: collectible.id,
+                  name,
+                  code: collectible.collectible_catalog?.code,
+                });
                 // Refresh album and stored growth, but not the current collectible:
                 // replacing its id here would hide the just-revealed result.
                 void queryClient.invalidateQueries({

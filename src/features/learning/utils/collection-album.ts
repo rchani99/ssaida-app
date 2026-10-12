@@ -9,6 +9,7 @@ export type AlbumEntry = {
   name: string;
   state: 'collected' | 'growing' | 'ready' | 'locked';
   progress: number;
+  artworkCode?: string;
 };
 export type CollectionAlbum = {
   entries: AlbumEntry[];
@@ -20,10 +21,11 @@ export type CollectionAlbum = {
 export function buildCollectionAlbum(
   catalog: { id: string }[],
   owned: AlbumOwnedItem[],
-  revealedNames: { id: string; name: string }[],
+  revealedNames: { id: string; name: string; code?: string }[],
 ): CollectionAlbum {
   const byId = new Map(owned.map((item) => [item.collectible_catalog_id, item]));
   const names = new Map(revealedNames.map((item) => [item.id, item.name]));
+  const artworkCodes = new Map(revealedNames.map((item) => [item.id, item.code]));
   const entries: AlbumEntry[] = catalog.map(({ id }) => {
     const item = byId.get(id);
     const state = item?.revealed_at
@@ -37,6 +39,7 @@ export function buildCollectionAlbum(
       id,
       // Never carry hidden identity into display props, even if a caller supplies it.
       name: state === 'collected' ? (names.get(id) ?? '수집한 친구') : '???',
+      ...(state === 'collected' ? { artworkCode: artworkCodes.get(id) } : {}),
       state,
       progress:
         item && item.growth_goal_snapshot > 0

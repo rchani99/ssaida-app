@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { childCollectionTokens as reward, colors, spacing } from '@/design-system/tokens';
+import { CollectionArtwork } from '@/features/learning/components/collection-artwork';
 
 import type { CollectionAlbum as Album } from '@/features/learning/utils/collection-album';
 
@@ -11,10 +12,16 @@ const labels = {
   locked: '아직 만나지 못했어요',
 };
 
-export function CollectionAlbum({ album }: { album: Album }) {
+export function CollectionAlbum({
+  album,
+  title = '완성한 컬렉션',
+}: {
+  album: Album;
+  title?: string;
+}) {
   return (
     <View style={styles.panel}>
-      <Text style={styles.title}>완성한 컬렉션</Text>
+      <Text style={styles.title}>{title}</Text>
       <Text style={styles.count}>
         {album.collected} / {album.total}개 모았어요
       </Text>
@@ -56,9 +63,11 @@ export function CollectionAlbum({ album }: { album: Album }) {
                     item.state === 'ready' && styles.readyArt,
                   ]}
                 >
-                  {/* Generic artwork only; real item artwork may be used after reveal. */}
-                  <Text style={styles.symbol}>{item.state === 'collected' ? '✦' : '?'}</Text>
-                  {item.state === 'collected' && <Text style={styles.face}>• ᴗ •</Text>}
+                  {item.state === 'collected' ? (
+                    <CollectionArtwork code={item.artworkCode} />
+                  ) : (
+                    <Text style={styles.symbol}>?</Text>
+                  )}
                 </View>
                 <View style={styles.detail}>
                   <Text style={styles.itemName}>
@@ -129,7 +138,6 @@ const styles = StyleSheet.create({
     backgroundColor: reward.lavender,
   },
   symbol: { fontSize: 44, color: reward.lavenderInk, fontWeight: '800' },
-  face: { fontSize: 22, color: colors.primaryDark },
   state: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center' },
   collectedCard: { borderColor: reward.mintBorder },
   readyCard: { borderColor: reward.butterInk, backgroundColor: '#FFFCF3' },

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { changeParentPin } from '@/features/auth/services/change-parent-pin';
@@ -8,7 +8,10 @@ import {
   learningStyles as s,
 } from '@/features/learning/components/learning-controls';
 
-export function ParentPinSettingsPanel() {
+export function ParentPinSettingsPanel({
+  onBusyChange,
+}: { onBusyChange?: (busy: boolean) => void } = {}) {
+  const submitting = useRef(false);
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -56,6 +59,7 @@ export function ParentPinSettingsPanel() {
           busy || currentPin.length !== 4 || newPin.length !== 4 || confirmation.length !== 4
         }
         onPress={() => {
+          if (submitting.current) return;
           if (newPin !== confirmation) {
             setMessage('새 PIN이 일치하지 않아요.');
             return;
@@ -64,7 +68,9 @@ export function ParentPinSettingsPanel() {
             setMessage('현재 PIN과 다른 PIN을 입력해 주세요.');
             return;
           }
+          submitting.current = true;
           setBusy(true);
+          onBusyChange?.(true);
           setMessage('');
           void changeParentPin(currentPin, newPin)
             .then((result) => {
@@ -82,6 +88,8 @@ export function ParentPinSettingsPanel() {
             .finally(() => {
               clear();
               setBusy(false);
+              submitting.current = false;
+              onBusyChange?.(false);
             });
         }}
       />

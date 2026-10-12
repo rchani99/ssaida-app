@@ -3,8 +3,12 @@ import { ChevronRight } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,9 +17,8 @@ import {
 
 import { dashboardIconProps } from '@/design-system/icons';
 import { colors, dashboardTokens as t, radius, sizing, spacing } from '@/design-system/tokens';
-import { SensitiveAccountPanel } from '@/features/auth/components/sensitive-account-panel';
+import { ParentPinHelpPanel } from '@/features/auth/components/parent-pin-help-panel';
 import { useAuth } from '@/features/auth/hooks/use-auth';
-import { sensitiveActionsEnabled } from '@/features/auth/services/sensitive-actions-enabled';
 import { verifyParentPin } from '@/features/auth/services/verify-parent-pin';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useAppModeStore } from '@/store/app-mode.store';
@@ -34,6 +37,7 @@ export function ParentModeButton({
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recovering, setRecovering] = useState(false);
+  const [helpBusy, setHelpBusy] = useState(false);
   const attempt = useRef(0);
   const submitting = useRef(false);
   useEffect(
@@ -53,6 +57,7 @@ export function ParentModeButton({
     setPending(false);
     setConfirmingLogout(false);
     setRecovering(false);
+    setHelpBusy(false);
   };
 
   const submit = async () => {
@@ -131,124 +136,139 @@ export function ParentModeButton({
         transparent
         animationType="fade"
         onRequestClose={() => {
-          if (signingOut) return;
-          if (confirmingLogout) {
+          if (signingOut || helpBusy) return;
+          if (recovering) {
+            Keyboard.dismiss();
+            setRecovering(false);
+          } else if (confirmingLogout) {
             setConfirmingLogout(false);
             setError(null);
           } else close();
         }}
       >
-        <View style={styles.overlay}>
-          <View style={styles.panel} accessibilityViewIsModal>
-            {recovering && sensitiveActionsEnabled() ? (
-              <SensitiveAccountPanel kind="recovery" onClose={() => setRecovering(false)} />
-            ) : confirmingLogout ? (
-              <>
-                <Text style={styles.title}>로그아웃할까요?</Text>
-                <Text style={styles.help}>다시 로그인해야 사용할 수 있어요.</Text>
-                {error && (
-                  <Text accessibilityRole="alert" style={styles.error}>
-                    {error}
-                  </Text>
-                )}
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={signingOut}
-                  onPress={() => {
-                    setConfirmingLogout(false);
-                    setError(null);
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.panel} accessibilityViewIsModal>
+              {recovering ? (
+                <ParentPinHelpPanel
+                  onBusyChange={setHelpBusy}
+                  onClose={() => {
+                    Keyboard.dismiss();
+                    setRecovering(false);
                   }}
-                  style={styles.cancel}
-                >
-                  <Text style={styles.openText}>취소</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={signingOut}
-                  onPress={() => void logout()}
-                  style={styles.confirm}
-                >
-                  <Text style={styles.confirmText}>{signingOut ? '로그아웃 중…' : '로그아웃'}</Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <Text style={styles.title}>부모 PIN을 입력해 주세요</Text>
-                <TextInput
-                  accessibilityLabel="부모 PIN"
-                  autoFocus
-                  secureTextEntry
-                  autoComplete="off"
-                  textContentType="none"
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  editable={!pending && !signingOut}
-                  value={pin}
-                  onChangeText={(value) => setPin(value.replace(/\D/g, ''))}
-                  onSubmitEditing={() => void submit()}
-                  style={styles.input}
                 />
-                {error && (
-                  <Text accessibilityRole="alert" style={styles.error}>
-                    {error}
-                  </Text>
-                )}
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={pending || signingOut || pin.length !== 4}
-                  onPress={() => void submit()}
-                  style={styles.confirm}
-                >
-                  {pending ? (
-                    <ActivityIndicator color={colors.card} />
-                  ) : (
-                    <Text style={styles.confirmText}>확인</Text>
+              ) : confirmingLogout ? (
+                <>
+                  <Text style={styles.title}>로그아웃할까요?</Text>
+                  <Text style={styles.help}>다시 로그인해야 사용할 수 있어요.</Text>
+                  {error && (
+                    <Text accessibilityRole="alert" style={styles.error}>
+                      {error}
+                    </Text>
                   )}
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={signingOut}
-                  onPress={close}
-                  style={styles.cancel}
-                >
-                  <Text style={styles.openText}>취소</Text>
-                </Pressable>
-                <Text style={styles.help}>
-                  {sensitiveActionsEnabled()
-                    ? 'PIN을 잊었다면 재설정을 요청할 수 있어요. 72시간 뒤에 새 PIN을 정해요.'
-                    : 'PIN을 잊었다면 로그아웃할 수 있어요. PIN은 초기화되지 않아요.'}
-                </Text>
-                {sensitiveActionsEnabled() && (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={signingOut}
+                    onPress={() => {
+                      setConfirmingLogout(false);
+                      setError(null);
+                    }}
+                    style={styles.cancel}
+                  >
+                    <Text style={styles.openText}>취소</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={signingOut}
+                    onPress={() => void logout()}
+                    style={styles.confirm}
+                  >
+                    <Text style={styles.confirmText}>
+                      {signingOut ? '로그아웃 중…' : '로그아웃'}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.title}>부모 PIN을 입력해 주세요</Text>
+                  <TextInput
+                    accessibilityLabel="부모 PIN"
+                    autoFocus
+                    secureTextEntry
+                    autoComplete="off"
+                    textContentType="none"
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    editable={!pending && !signingOut}
+                    value={pin}
+                    onChangeText={(value) => setPin(value.replace(/\D/g, ''))}
+                    onSubmitEditing={() => void submit()}
+                    style={styles.input}
+                  />
+                  {error && (
+                    <Text accessibilityRole="alert" style={styles.error}>
+                      {error}
+                    </Text>
+                  )}
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={pending || signingOut || pin.length !== 4}
+                    onPress={() => void submit()}
+                    style={styles.confirm}
+                  >
+                    {pending ? (
+                      <ActivityIndicator color={colors.card} />
+                    ) : (
+                      <Text style={styles.confirmText}>확인</Text>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={signingOut}
+                    onPress={close}
+                    style={styles.cancel}
+                  >
+                    <Text style={styles.openText}>취소</Text>
+                  </Pressable>
                   <Pressable
                     accessibilityRole="button"
                     disabled={pending || signingOut}
                     style={styles.cancel}
                     onPress={() => {
+                      if (submitting.current) return;
+                      Keyboard.dismiss();
                       setPin('');
                       setError(null);
                       setRecovering(true);
                     }}
                   >
-                    <Text style={styles.openText}>PIN을 잊으셨나요?</Text>
+                    <Text style={styles.linkText}>PIN 번호 찾기/변경</Text>
                   </Pressable>
-                )}
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={pending || signingOut}
-                  onPress={() => {
-                    if (submitting.current) return;
-                    setPin('');
-                    setError(null);
-                    setConfirmingLogout(true);
-                  }}
-                  style={styles.cancel}
-                >
-                  <Text style={styles.openText}>{signingOut ? '로그아웃 중…' : '로그아웃'}</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={pending || signingOut}
+                    onPress={() => {
+                      if (submitting.current) return;
+                      setPin('');
+                      setError(null);
+                      setConfirmingLogout(true);
+                    }}
+                    style={styles.cancel}
+                  >
+                    <Text style={styles.openText}>{signingOut ? '로그아웃 중…' : '로그아웃'}</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -262,6 +282,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   openText: { color: colors.primaryDark, fontSize: 15, fontWeight: '700' },
+  linkText: {
+    color: colors.primaryDark,
+    fontSize: 15,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  scroll: { width: '100%' },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
   compactOpen: { paddingVertical: 0 },
   pill: {
     flexDirection: 'row',

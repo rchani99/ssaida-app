@@ -9,7 +9,7 @@ import { uiMocks } from './ui-regression-mocks.mjs';
 
 const token = new Proxy({}, { get: () => 8 });
 const native = new Proxy(
-  { StyleSheet: { create: (value) => value }, Platform: { OS: 'web' } },
+  { StyleSheet: { create: (value) => value }, Platform: { OS: 'web' }, Keyboard: { dismiss() {} } },
   { get: (object, key) => object[key] ?? key },
 );
 const jsx = (type, props) => ({ type, props });
@@ -157,6 +157,7 @@ let route = null;
 let logoutCalls = 0;
 let sensitiveEnabled = false;
 const pin = harness('src/features/auth/components/parent-mode-button.tsx', 'ParentModeButton', {
+  '@/features/auth/components/parent-pin-help-panel': { ParentPinHelpPanel: 'PinHelp' },
   '@/features/auth/services/sensitive-actions-enabled': {
     sensitiveActionsEnabled: () => sensitiveEnabled,
   },
@@ -194,11 +195,127 @@ const pin = harness('src/features/auth/components/parent-mode-button.tsx', 'Pare
 });
 sensitiveEnabled = true;
 button(pin.render({ compact: true }), '부모님 모드').onPress();
-button(pin.render(), 'PIN을 잊으셨나요?').onPress();
-const recoveryPanel = nodes(pin.render()).find((node) => node.type === 'SensitivePanel');
-assert.equal(recoveryPanel?.props.kind, 'recovery');
-recoveryPanel.props.onClose();
+nodes(pin.render())
+  .find((node) => node.type === 'TextInput')
+  .props.onChangeText('1234');
+button(pin.render(), 'PIN 번호 찾기/변경').onPress();
+const helpPanel = nodes(pin.render()).find((node) => node.type === 'PinHelp');
+assert.ok(helpPanel);
+assert.equal(mode, 'child');
+assert.equal(route, null);
+helpPanel.props.onBusyChange(true);
+nodes(pin.render())
+  .find((node) => node.type === 'Modal')
+  .props.onRequestClose();
+assert.ok(nodes(pin.render()).some((node) => node.type === 'PinHelp'));
+helpPanel.props.onBusyChange(false);
+nodes(pin.render())
+  .find((node) => node.type === 'Modal')
+  .props.onRequestClose();
+assert.equal(nodes(pin.render()).find((node) => node.type === 'TextInput').props.value, '');
 sensitiveEnabled = false;
+button(pin.render(), 'PIN 번호 찾기/변경').onPress();
+nodes(pin.render())
+  .find((node) => node.type === 'PinHelp')
+  .props.onClose();
+assert.equal(mode, 'child');
+
+const pinHelp = harness(
+  'src/features/auth/components/parent-pin-help-panel.tsx',
+  'ParentPinHelpPanel',
+  {
+    '@/features/auth/components/parent-pin-settings-panel': {
+      ParentPinSettingsPanel: 'PinSettings',
+    },
+    '@/features/auth/components/sensitive-account-panel': {
+      SensitiveAccountPanel: 'SensitivePanel',
+    },
+    '@/features/auth/services/sensitive-actions-enabled': {
+      sensitiveActionsEnabled: () => sensitiveEnabled,
+    },
+  },
+);
+let helpClosed = 0,
+  helpBusy = false;
+const helpProps = {
+  onClose: () => {
+    helpClosed++;
+  },
+  onBusyChange: (busy) => {
+    helpBusy = busy;
+  },
+};
+button(pinHelp.render(helpProps), 'PIN을 잊었어요 · 재설정').onPress();
+assert.ok(text(pinHelp.render(helpProps)).includes('아직 준비 중이에요'));
+assert.ok(!nodes(pinHelp.render(helpProps)).some((node) => node.type === 'SensitivePanel'));
+button(pinHelp.render(helpProps), '돌아가기').onPress();
+button(pinHelp.render(helpProps), '현재 PIN을 알아요 · 변경하기').onPress();
+nodes(pinHelp.render(helpProps))
+  .find((node) => node.type === 'PinSettings')
+  .props.onBusyChange(true);
+assert.equal(helpBusy, true);
+assert.equal(button(pinHelp.render(helpProps), 'PIN 입력으로 돌아가기').disabled, true);
+nodes(pinHelp.render(helpProps))
+  .find((node) => node.type === 'PinSettings')
+  .props.onBusyChange(false);
+button(pinHelp.render(helpProps), 'PIN 입력으로 돌아가기').onPress();
+assert.equal(helpClosed, 1);
+const enabledHelp = harness(
+  'src/features/auth/components/parent-pin-help-panel.tsx',
+  'ParentPinHelpPanel',
+  {
+    '@/features/auth/components/parent-pin-settings-panel': {
+      ParentPinSettingsPanel: 'PinSettings',
+    },
+    '@/features/auth/components/sensitive-account-panel': {
+      SensitiveAccountPanel: 'SensitivePanel',
+    },
+    '@/features/auth/services/sensitive-actions-enabled': { sensitiveActionsEnabled: () => true },
+  },
+);
+button(enabledHelp.render(helpProps), 'PIN을 잊었어요 · 재설정').onPress();
+assert.equal(
+  nodes(enabledHelp.render(helpProps)).find((node) => node.type === 'SensitivePanel').props.kind,
+  'recovery',
+);
+
+let changeCalls = 0,
+  resolveChange;
+const changePanel = harness(
+  'src/features/auth/components/parent-pin-settings-panel.tsx',
+  'ParentPinSettingsPanel',
+  {
+    '@/features/auth/services/change-parent-pin': {
+      changeParentPin: () => {
+        changeCalls++;
+        return new Promise((resolve) => {
+          resolveChange = resolve;
+        });
+      },
+    },
+  },
+);
+const changeProps = {
+  onBusyChange: (busy) => {
+    helpBusy = busy;
+  },
+};
+const fields = () =>
+  nodes(changePanel.render(changeProps)).filter((node) => node.type === 'TextInput');
+fields()[0].props.onChangeText('1234');
+fields()[1].props.onChangeText('5678');
+fields()[2].props.onChangeText('5678');
+const changeButton = button(changePanel.render(changeProps), 'PIN 변경');
+changeButton.onPress();
+changeButton.onPress();
+assert.equal(changeCalls, 1);
+assert.equal(helpBusy, true);
+resolveChange('changed');
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(helpBusy, false);
+assert.ok(text(changePanel.render(changeProps)).includes('PIN을 변경했어요.'));
+assert.ok(fields().every((field) => field.props.value === ''));
+assert.equal(mode, 'child', 'Changing the PIN never enters parent mode without verification');
 for (verdict of ['invalid', 'locked', 'valid']) {
   let tree = pin.render({ compact: true });
   button(tree, '부모님 모드').onPress();

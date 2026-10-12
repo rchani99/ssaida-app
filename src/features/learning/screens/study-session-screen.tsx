@@ -4,7 +4,8 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, sizing, spacing } from '@/design-system/tokens';
-import { CompletionReward } from '@/features/learning/components/completion-reward';
+import { LearningButton } from '@/features/learning/components/learning-controls';
+import { StudyCompletionActions } from '@/features/learning/components/study-completion-actions';
 import {
   useCompleteDailyTask,
   useDailyTask,
@@ -67,10 +68,12 @@ export function StudySessionScreen() {
     <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: true, title: '공부하기' }} />
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.copy}>
+        <View style={[styles.copy, isCompleted && styles.completedCopy]}>
           <Text style={styles.eyebrow}>{task.item_type === 'WORKBOOK' ? '문제집' : '활동'}</Text>
-          <Text style={styles.title}>{task.name_snapshot}</Text>
-          <Text style={styles.detail}>
+          <Text style={[styles.title, isCompleted && styles.completedTitle]}>
+            {task.name_snapshot}
+          </Text>
+          <Text style={[styles.detail, isCompleted && styles.completedDetail]}>
             {task.item_type === 'WORKBOOK'
               ? `${task.planned_start_page}쪽 ~ ${task.planned_end_page}쪽`
               : `약 ${task.planned_minutes}분`}
@@ -80,20 +83,7 @@ export function StudySessionScreen() {
           )}
         </View>
 
-        {isCompleted ? (
-          <View style={styles.waiting}>
-            <Text style={styles.waitingTitle}>
-              {task.status === 'SKIPPED' ? '이번 공부는 넘겼어요' : '참 잘했어요!'}
-            </Text>
-            <Text style={styles.waitingText}>
-              {task.status === 'CHILD_COMPLETED'
-                ? '부모님 확인을 기다리고 있어요.'
-                : task.status === 'SKIPPED'
-                  ? '오늘 공부에서 다음 할 일을 확인해 주세요.'
-                  : '부모님이 공부를 확인했어요.'}
-            </Text>
-          </View>
-        ) : (
+        {!isCompleted && (
           <Pressable
             accessibilityRole="button"
             disabled={startTask.isPending || completeTask.isPending || (!canStart && !canComplete)}
@@ -117,8 +107,20 @@ export function StudySessionScreen() {
             )}
           </Pressable>
         )}
-        {completedHere === task.id && task.status === 'CHILD_COMPLETED' && (
-          <CompletionReward key={task.id} taskId={task.id} />
+        {isCompleted ? (
+          <StudyCompletionActions
+            key={task.id}
+            taskId={task.id}
+            status={task.status}
+            celebrate={completedHere === task.id && task.status === 'CHILD_COMPLETED'}
+          />
+        ) : (
+          <LearningButton
+            label="공부 목록 보기"
+            variant="outline"
+            disabled={startTask.isPending || completeTask.isPending}
+            onPress={() => router.replace('/child/today')}
+          />
         )}
         {(startTask.isError || completeTask.isError) && (
           <Text style={styles.error}>처리하지 못했어요. 잠시 후 다시 시도해 주세요.</Text>
@@ -138,18 +140,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   copy: { alignItems: 'center', gap: spacing.md, paddingTop: spacing.xl },
+  completedCopy: { gap: spacing.sm, paddingTop: spacing.sm },
+  completedTitle: { fontSize: 22 },
+  completedDetail: { fontSize: 18 },
   eyebrow: { color: colors.primary, fontSize: 14, fontWeight: '700' },
   title: { color: colors.textPrimary, fontSize: 30, fontWeight: '800', textAlign: 'center' },
   detail: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', textAlign: 'center' },
   minutes: { color: colors.textSecondary, fontSize: 15 },
-  waiting: {
-    gap: spacing.sm,
-    padding: spacing.lg,
-    borderRadius: radius.card,
-    backgroundColor: colors.primaryLight,
-  },
-  waitingTitle: { color: colors.primaryDark, fontSize: 20, fontWeight: '800', textAlign: 'center' },
-  waitingText: { color: colors.textSecondary, fontSize: 15, textAlign: 'center' },
   primaryButton: {
     minHeight: sizing.buttonHeight,
     paddingHorizontal: spacing.md,

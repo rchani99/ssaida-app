@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { dashboardIconProps } from '@/design-system/icons';
 import { colors, dashboardTokens as t } from '@/design-system/tokens';
+import { DailyStudyCelebration } from '@/features/learning/components/daily-study-celebration';
 import {
   useContinuingTasks,
   useCurrentChild,
@@ -87,6 +88,12 @@ export function ChildTodayScreen() {
   );
 
   const firstTask = [...groups.continuing, ...groups.today].find(canOpenTask);
+  const allDone =
+    groups.todayCount > 0 &&
+    groups.remaining === 0 &&
+    groups.completed === groups.todayCount &&
+    !groups.today.some((task) => task.quantity_conflict) &&
+    ![childQuery, planQuery, tasksQuery, continuingQuery].some((query) => query.isFetching);
   const handleOpen = (task: DailyTask) => {
     if (!canOpenTask(task) || startTask.isPending) return;
     setOpeningId(task.id);
@@ -110,6 +117,12 @@ export function ChildTodayScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container}>
+        {allDone && (
+          <DailyStudyCelebration
+            key={`${childId}:${today}`}
+            onCollection={() => router.push('/child/garden')}
+          />
+        )}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryCaption}>{childQuery.data.name}의 오늘</Text>
           <View style={styles.summaryRow}>

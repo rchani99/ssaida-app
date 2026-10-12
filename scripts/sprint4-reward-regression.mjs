@@ -109,39 +109,11 @@ assert.ok(
 );
 
 let tasksQuery = { data: [task, prior] };
-let route;
-let reduced = true;
-let animations = 0;
-const effects = [];
 const { CompletionReward } = load('src/features/learning/components/completion-reward.tsx', {
   ...common,
-  react: { useState: (initial) => [initial()], useEffect: (effect) => effects.push(effect) },
-  'expo-router': {
-    useRouter: () => ({
-      replace: (path) => {
-        route = path;
-      },
-    }),
+  '@/features/learning/components/study-celebration-art': {
+    StudyCelebrationArt: 'StudyCelebrationArt',
   },
-  'react-native': {
-    ...native,
-    View: 'View',
-    Text: 'Text',
-    Animated: {
-      Text: 'AnimatedText',
-      Value: class {
-        stopAnimation() {}
-      },
-      timing: () => ({}),
-      sequence: () => ({
-        start: () => {
-          animations++;
-        },
-      }),
-    },
-    AccessibilityInfo: { isReduceMotionEnabled: async () => reduced },
-  },
-  '@/features/learning/components/learning-controls': { LearningButton: 'Button' },
   '@/features/learning/hooks/use-learning': {
     useCurrentChild: () => ({ data: { id: 'child' } }),
     useDailyPlan: (_child, date) => {
@@ -161,18 +133,7 @@ function nodes(tree) {
 const reward = CompletionReward({ taskId: 'last' });
 const celebration = reward.type(reward.props);
 assert.ok(JSON.stringify(celebration).includes('아직 확정 전이에요'));
-nodes(celebration)
-  .find((n) => n.type === 'Button')
-  .props.onPress();
-assert.equal(route, '/child/garden');
-effects.pop()();
-await new Promise((resolve) => setImmediate(resolve));
-assert.equal(animations, 0);
-reduced = false;
-reward.type(reward.props);
-effects.pop()();
-await new Promise((resolve) => setImmediate(resolve));
-assert.equal(animations, 1);
+assert.ok(nodes(celebration).some((node) => node.type === 'StudyCelebrationArt'));
 for (const state of [{ isFetching: true }, { isError: true }, { data: undefined }]) {
   tasksQuery = { data: [task], ...state };
   assert.equal(CompletionReward({ taskId: 'last' }), null);
@@ -182,6 +143,7 @@ for (const state of [{ isFetching: true }, { isError: true }, { data: undefined 
 let stored = null;
 let callbacks;
 let status = 'IN_PROGRESS';
+let sessionRoute;
 const { StudySessionScreen } = load('src/features/learning/screens/study-session-screen.tsx', {
   ...common,
   react: {
@@ -194,11 +156,14 @@ const { StudySessionScreen } = load('src/features/learning/screens/study-session
   },
   'expo-router': {
     Stack: { Screen: 'Screen' },
-    useRouter: () => ({}),
+    useRouter: () => ({ replace: (path) => (sessionRoute = path) }),
     useLocalSearchParams: () => ({ taskId: 'last' }),
   },
   'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
-  '@/features/learning/components/completion-reward': { CompletionReward: 'Reward' },
+  '@/features/learning/components/study-completion-actions': {
+    StudyCompletionActions: 'StudyCompletionActions',
+  },
+  '@/features/learning/components/learning-controls': { LearningButton: 'Button' },
   '@/shared/components/screen-message': { ScreenMessage: 'Message' },
   '@/features/learning/hooks/use-learning': {
     useDailyTask: () => ({ data: { ...task, status } }),
@@ -211,21 +176,26 @@ const { StudySessionScreen } = load('src/features/learning/screens/study-session
   },
 });
 nodes(StudySessionScreen())
+  .find((n) => n.type === 'Button' && n.props.label === '공부 목록 보기')
+  .props.onPress();
+assert.equal(sessionRoute, '/child/today');
+assert.equal(callbacks, undefined, 'Returning to the list must not complete the study');
+nodes(StudySessionScreen())
   .find((n) => n.type === 'Pressable')
   .props.onPress();
 assert.equal(
-  nodes(StudySessionScreen()).some((n) => n.type === 'Reward'),
+  nodes(StudySessionScreen()).some((n) => n.type === 'StudyCompletionActions'),
   false,
 );
 callbacks.onSuccess();
 status = 'CHILD_COMPLETED';
 assert.equal(
-  nodes(StudySessionScreen()).some((n) => n.type === 'Reward'),
+  nodes(StudySessionScreen()).find((n) => n.type === 'StudyCompletionActions').props.celebrate,
   true,
 );
 stored = null;
 assert.equal(
-  nodes(StudySessionScreen()).some((n) => n.type === 'Reward'),
+  nodes(StudySessionScreen()).find((n) => n.type === 'StudyCompletionActions').props.celebrate,
   false,
 );
 console.log(

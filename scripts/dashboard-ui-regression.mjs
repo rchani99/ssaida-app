@@ -29,6 +29,9 @@ let count = 0,
   route;
 const colors = { primaryLight: 'green', card: 'white' };
 const mocks = {
+  '@/features/learning/components/daily-study-celebration': {
+    DailyStudyCelebration: 'DailyStudyCelebration',
+  },
   react: { useCallback: (callback) => callback },
   'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
   'react-native': {
@@ -472,6 +475,45 @@ mocks['@/features/learning/utils/exception-tasks'] = load(
   'src/features/learning/utils/exception-tasks.ts',
 );
 const { ChildTodayScreen } = load('src/features/learning/screens/child-today-screen.tsx');
+
+const originalContinuing = continuing;
+continuing = [];
+const hasCelebration = () =>
+  nodes(ChildTodayScreen()).some((node) => node.type === 'DailyStudyCelebration');
+for (const status of ['CHILD_COMPLETED', 'PARENT_CONFIRMED', 'PARTIAL']) {
+  tasks = [task(status)];
+  assert.equal(hasCelebration(), true, 'Celebrate completed work even after returning to the list');
+}
+nodes(ChildTodayScreen())
+  .find((node) => node.type === 'DailyStudyCelebration')
+  .props.onCollection();
+assert.equal(route, '/child/garden');
+for (const rows of [
+  [],
+  [task('SKIPPED')],
+  [task('PARENT_CONFIRMED', { excluded_for_today: true })],
+  [task('CHILD_COMPLETED'), task('PLANNED')],
+  [task('CHILD_COMPLETED'), task('RETRY')],
+  [task('CHILD_COMPLETED'), task('IN_PROGRESS')],
+  [task('CHILD_COMPLETED'), task('PLANNED', { quantity_conflict: 'GAP' })],
+]) {
+  tasks = rows;
+  assert.equal(hasCelebration(), false, 'Empty, unfinished and conflicted days are not all done');
+}
+tasks = [task('CHILD_COMPLETED')];
+continuing = [task('IN_PROGRESS', { id: 'yesterday' })];
+assert.equal(hasCelebration(), false, 'Continuing studies must also be completed');
+continuing = [];
+plan.isFetching = true;
+assert.equal(hasCelebration(), false, 'Do not celebrate stale data');
+plan.isFetching = false;
+taskError = true;
+assert.equal(hasCelebration(), false);
+taskError = false;
+continuing = originalContinuing;
+console.log(
+  'PASS daily celebration: completion, return visit, empty/rest, retry, continuing, conflict, stale/error and collection action',
+);
 tasks = [];
 plan = { data: { id: 'p', day_type: 'REST', target_minutes_snapshot: 60 } };
 let childText = text(ChildTodayScreen());

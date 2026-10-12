@@ -29,6 +29,7 @@ let count = 0,
   route;
 const colors = { primaryLight: 'green', card: 'white' };
 const mocks = {
+  '@/features/learning/components/rest-day-card': { RestDayCard: 'RestDayCard' },
   '@/features/learning/components/daily-study-celebration': {
     DailyStudyCelebration: 'DailyStudyCelebration',
   },
@@ -520,7 +521,25 @@ let childText = text(ChildTodayScreen());
 assert.ok(childText.includes('오늘 0개 · 약 0분'));
 assert.ok(childText.includes('이어하기 3개 · 약 60분'));
 assert.ok(childText.includes('오늘의 공부'));
-assert.ok(childText.includes('오늘은 쉬는 날이에요'));
+assert.equal(
+  nodes(ChildTodayScreen()).find((node) => node.type === 'RestDayCard').props.hasStudies,
+  true,
+);
+const savedContinuing = continuing;
+continuing = [];
+assert.equal(
+  nodes(ChildTodayScreen()).find((node) => node.type === 'RestDayCard').props.hasStudies,
+  false,
+);
+assert.ok(
+  !text(ChildTodayScreen()).includes('오늘의 공부'),
+  'An empty rest day does not show an empty list heading',
+);
+plan.data.day_type = 'STUDY';
+assert.ok(!nodes(ChildTodayScreen()).some((node) => node.type === 'RestDayCard'));
+assert.ok(text(ChildTodayScreen()).includes('부모님과 공부를 먼저 등록해 주세요.'));
+plan.data.day_type = 'REST';
+continuing = savedContinuing;
 tasks = [
   task('PLANNED', {
     id: 'moved',
@@ -532,6 +551,7 @@ tasks = [
 childText = text(ChildTodayScreen());
 assert.ok(childText.includes('이어하기 2개 · 약 40분'));
 assert.ok(childText.includes('오늘 공부 1개Moved today'));
+assert.equal(nodes(ChildTodayScreen()).filter((node) => node.type === 'RestDayCard').length, 1);
 const { groupTodayTasks } = mocks['@/features/learning/utils/visible-tasks'];
 const grouped = groupTodayTasks(tasks, [
   ...continuing,

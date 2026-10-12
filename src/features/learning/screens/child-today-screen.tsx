@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { dashboardIconProps } from '@/design-system/icons';
 import { colors, dashboardTokens as t } from '@/design-system/tokens';
 import { DailyStudyCelebration } from '@/features/learning/components/daily-study-celebration';
+import { RestDayCard } from '@/features/learning/components/rest-day-card';
 import {
   useContinuingTasks,
   useCurrentChild,
@@ -88,6 +89,8 @@ export function ChildTodayScreen() {
   );
 
   const firstTask = [...groups.continuing, ...groups.today].find(canOpenTask);
+  const isRestDay = planQuery.data.day_type === 'REST';
+  const hasStudies = groups.today.length > 0 || groups.continuing.length > 0;
   const allDone =
     groups.todayCount > 0 &&
     groups.remaining === 0 &&
@@ -139,9 +142,16 @@ export function ChildTodayScreen() {
             groups.today.length === 0 && groups.continuing.length === 0 && styles.emptyList,
           ]}
         >
-          <Text accessibilityRole="header" style={styles.sectionTitle}>
-            오늘의 공부
-          </Text>
+          {isRestDay && !allDone && (
+            <View style={!hasStudies ? styles.emptyCenter : undefined}>
+              <RestDayCard hasStudies={hasStudies} />
+            </View>
+          )}
+          {(!isRestDay || hasStudies) && (
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              오늘의 공부
+            </Text>
+          )}
           {groups.continuing.length > 0 && (
             <Text style={styles.groupLabel}>
               이어하기 {groups.continuing.length}개 · 약 {groups.continuingMinutes}분
@@ -152,22 +162,16 @@ export function ChildTodayScreen() {
             <Text style={styles.groupLabel}>오늘 공부 {groups.todayCount}개</Text>
           )}
           {groups.today.map(renderTask)}
-          {groups.today.length === 0 && (
+          {groups.today.length === 0 && !isRestDay && (
             <View style={groups.continuing.length === 0 ? styles.emptyCenter : undefined}>
               <View style={styles.emptyCard}>
                 <View style={styles.emptyIcon}>
                   <Leaf {...dashboardIconProps} size={t.icon.size.large} color={t.colors.primary} />
                 </View>
                 <Text accessibilityRole="header" style={styles.emptyTitle}>
-                  {planQuery.data.day_type === 'REST'
-                    ? '오늘은 쉬는 날이에요'
-                    : '오늘 계획된 공부가 없어요.'}
+                  오늘 계획된 공부가 없어요.
                 </Text>
-                <Text style={styles.emptyDescription}>
-                  {planQuery.data.day_type === 'REST'
-                    ? '오늘 계획된 공부가 없어요.'
-                    : '부모님과 공부를 먼저 등록해 주세요.'}
-                </Text>
+                <Text style={styles.emptyDescription}>부모님과 공부를 먼저 등록해 주세요.</Text>
               </View>
             </View>
           )}

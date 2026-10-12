@@ -44,9 +44,13 @@ const iconNames = [
 export function uiMocks(overrides) {
   if (overrides['react-native']) overrides['react-native'].StyleSheet ??= { create: (v) => v };
   return {
-    '@/features/learning/components/daily-study-celebration': { DailyStudyCelebration: 'DailyStudyCelebration' },
-    '@/features/learning/components/study-completion-actions': { StudyCompletionActions: 'StudyCompletionActions' },
-
+    '@/features/learning/components/rest-day-card': { RestDayCard: 'RestDayCard' },
+    '@/features/learning/components/daily-study-celebration': {
+      DailyStudyCelebration: 'DailyStudyCelebration',
+    },
+    '@/features/learning/components/study-completion-actions': {
+      StudyCompletionActions: 'StudyCompletionActions',
+    },
     '@/features/learning/components/collection-artwork': { CollectionArtwork: 'CollectionArtwork' },
     'lucide-react-native': Object.fromEntries(iconNames.map((name) => [name, name])),
     '@/design-system/icons': {

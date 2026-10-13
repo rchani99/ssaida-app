@@ -60,6 +60,13 @@ try {
     let lastReceipt;
     const operations = new Map();
     const handler = createHandler({
+      watchDelete: async () => ({
+        operationId: crypto.randomUUID(),
+        receipt: generateReceipt(),
+        expiresAt: new Date(now + 40 * 86400000).toISOString(),
+      }),
+      enabled: () => true,
+      resume: async () => challenge,
       now: () => now,
       authenticate: async () => {
         authenticated++;
@@ -159,6 +166,7 @@ try {
       '@/features/auth/services/account-recovery': { accountRecovery: recovery },
       '@/features/auth/services/account-recovery-state': recoveryModule,
       '@/features/auth/services/sensitive-action-flow': { createSensitiveActionFlow },
+      '@/features/auth/services/sensitive-action-events': { notifySensitiveActionsChanged() {} },
       '@/features/notifications/storage': { registerDeletionCleanup: () => {} },
       '@/lib/supabase/client': {
         getSupabaseClient: () => ({

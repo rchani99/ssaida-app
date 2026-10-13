@@ -1,5 +1,6 @@
 import { accountRecovery } from '@/features/auth/services/account-recovery';
 import { isDeletionReceipt } from '@/features/auth/services/account-recovery-state';
+import { notifySensitiveActionsChanged } from '@/features/auth/services/sensitive-action-events';
 import { createSensitiveActionFlow } from '@/features/auth/services/sensitive-action-flow';
 import { registerDeletionCleanup } from '@/features/notifications/storage';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -15,14 +16,15 @@ export function createAccountActions({
   return createSensitiveActionFlow({
     currentUserId: async () => (await client.auth.getSession()).data.session?.user.id ?? null,
     async invoke(body) {
-      if (body.action === 'begin' && (await accountRecovery.read()))
+      const marker = await accountRecovery.read();
+      if (body.action === 'begin' && marker && marker.phase !== 'watching')
         throw new Error('RECOVERY_REQUIRED');
       const deleting = body.action === 'delete';
       const userId = (await client.auth.getSession()).data.session?.user.id;
       let request = body;
       if (deleting) {
         if (!userId) throw new Error('AUTH_REQUIRED');
-        if (await accountRecovery.read()) throw new Error('RECOVERY_REQUIRED');
+        if (marker && marker.phase !== 'watching') throw new Error('RECOVERY_REQUIRED');
         const prepared = await client.functions.invoke('account-actions', {
           body: { action: 'prepare_delete', id: body.id },
         });
@@ -66,12 +68,21 @@ export function createAccountActions({
           if (data.status !== 'deleted') throw new Error('DELETE_OUTCOME_UNKNOWN');
           await accountRecovery.confirmed(userId!);
         }
+        if (body.action === 'begin' && body.purpose === 'delete_account' && userId) {
+          const watched = await client.functions.invoke('account-actions', {
+            body: { action: 'watch_delete', id: data.id },
+          });
+          if (watched.error || !isDeletionReceipt(watched.data)) throw new Error('WATCH_FAILED');
+          await accountRecovery.watch(userId, watched.data);
+        }
         return data;
       } catch {
         // Persisted unconfirmed state survives response loss. Never infer deletion from 401 alone.
         throw new Error(
           deleting ? '삭제 결과 또는 기기 정리 상태 확인이 필요해요.' : '다시 시도해 주세요.',
         );
+      } finally {
+        if (body.action !== 'resume') notifySensitiveActionsChanged();
       }
     },
     async cleanupDeletedAccount() {

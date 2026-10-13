@@ -200,17 +200,33 @@ for (const [label, title, panel] of [
 }
 
 child = { data: { id: 'child', name: '민준', rest_weekdays: [1, 3], daily_target_minutes: 90 } };
-for (const [label, kind] of [
-  ['계정 삭제', 'deletion'],
-  ['부모 PIN 재설정', 'recovery'],
-]) {
+for (const [label, kind] of [['계정 삭제', 'deletion']]) {
   press(label);
-  const panel = nodes(render()).find((node) => node.type === 'AccountInfoPanel');
+  const panel = nodes(render()).find((node) => node.type === 'SensitivePanel');
   assert.equal(panel?.props.kind, kind);
   assert.equal(hardwareBackHandler(), true);
   assert.ok(text(render()).includes(label));
   assert.equal(signOutCalls, 0);
 }
+
+press('부모 PIN 재설정');
+assert.equal(
+  nodes(render()).find((node) => node.type === 'SensitivePanel')?.props.kind,
+  'recovery',
+);
+nodes(render())
+  .find((node) => node.type === 'SensitivePanel')
+  .props.onBusyChange(true);
+render();
+assert.equal(navigationOptions.headerLeft().props.disabled, true);
+hardwareBackHandler();
+assert.ok(nodes(render()).some((node) => node.type === 'SensitivePanel'));
+nodes(render())
+  .find((node) => node.type === 'SensitivePanel')
+  .props.onBusyChange(false);
+render();
+hardwareBackHandler();
+assert.ok(text(render()).includes('72시간 후 재설정'));
 
 // Render the real informational panels: unavailable services must not expose executable actions.
 sensitiveEnabled = true;

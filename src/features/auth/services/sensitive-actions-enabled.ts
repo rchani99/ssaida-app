@@ -1,11 +1,6 @@
-import { getAppEnvironment } from '@/config/environment';
+import type { SensitivePurpose } from './sensitive-action-flow';
 
 // UI gate only; the Edge Function independently authenticates and verifies every action.
-export function sensitiveActionsEnabled(): boolean {
-  if (!__DEV__ || process.env.EXPO_PUBLIC_ENABLE_SENSITIVE_ACCOUNT_ACTIONS !== 'true') return false;
-  try {
-    return getAppEnvironment().environment === 'development';
-  } catch {
-    return false;
-  }
+export function sensitiveActionsEnabled(purpose: SensitivePurpose = 'delete_account'): boolean {
+  return purpose === 'reset_parent_pin' || purpose === 'delete_account';
 }

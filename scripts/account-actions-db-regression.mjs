@@ -170,10 +170,34 @@ try {
   sql(readFileSync('supabase/tests/sensitive_account_actions.sql', 'utf8'));
   sql(readFileSync('supabase/tests/sensitive_action_cleanup.sql', 'utf8'));
   sql(readFileSync('supabase/tests/account_deletion_receipts.sql', 'utf8'));
+  sql(readFileSync('supabase/tests/account_deletion_mvp.sql', 'utf8'));
   console.log(
     'PASS isolated DB: full migration replay; server-only privileges, PIN bcrypt/lock reset, ownership, expiry, cancel, purpose, replay and FK cascade',
   );
 
+  stage = 'deletion cancellation race';
+  for (let iteration = 0; iteration < 3; iteration++) {
+    const owner = randomUUID();
+    sql(`insert into auth.users(id) values('${owner}');`);
+    const challenge = sql(
+      `select (public.request_sensitive_action('${owner}','delete_account')).id;`,
+    );
+    sql(
+      `update public.sensitive_action_challenges set created_at=created_at-interval '15 days', available_at=clock_timestamp()-interval '1 second' where id='${challenge}';`,
+    );
+    const [cancelled, claimed] = await Promise.all([
+      concurrentSql(`select public.cancel_sensitive_action('${owner}','${challenge}');`),
+      concurrentSql('select public.claim_due_account_deletion();'),
+    ]);
+    assert.ok(
+      (cancelled === 't' && claimed === '') || (cancelled === 'f' && claimed === owner),
+      'cancel and claim cannot both succeed',
+    );
+    sql(`delete from auth.users where id='${owner}';`);
+  }
+  console.log(
+    'PASS deletion MVP: early read-only receipts, multiple devices, automatic completion, claimed cancellation fence, Admin retry after expiry, and concurrent cancel/claim',
+  );
   stage = 'concurrent consumption';
   const user = randomUUID();
   sql(`insert into auth.users(id) values('${user}');`);
@@ -234,7 +258,11 @@ try {
     locker.stdin.end('rollback;\n');
     await closed;
   }
-  assert.equal(sql('select public.cleanup_sensitive_action_challenges();'), '1');
+  assert.equal(
+    sql('select public.cleanup_sensitive_action_challenges();'),
+    '0',
+    'claimed deletions survive TTL for retry',
+  );
   console.log(
     'PASS proof TTL: expired statuses removed, recent proofs retained and locked rows skipped',
   );

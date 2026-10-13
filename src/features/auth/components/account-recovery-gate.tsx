@@ -26,6 +26,25 @@ export function AccountRecoveryGate({ children }: PropsWithChildren) {
         return;
       }
       if (marker.phase === 'cleanup') completed.current = true;
+      if (marker.phase === 'watching') {
+        // A waiting deletion must not block normal use or cancellation, even offline.
+        try {
+          await accountRecovery.resume();
+        } catch {
+          /* retry on foreground/timer */
+        }
+        if (request !== generation.current) return;
+        const latest = await accountRecovery.read();
+        if (request !== generation.current) return;
+        setState(
+          latest?.phase === 'cleanup'
+            ? 'retry'
+            : !latest && completed.current
+              ? 'complete'
+              : 'clear',
+        );
+        return;
+      }
       void SplashScreen.hideAsync();
       if (marker.phase === 'unconfirmed' && !marker.operation) {
         setState('unknown');
@@ -64,11 +83,15 @@ export function AccountRecoveryGate({ children }: PropsWithChildren) {
     const subscription = AppState.addEventListener('change', (next) => {
       if (next === 'active') void inspect();
     });
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') void inspect();
+    }, 30_000);
     return () => {
       active = false;
       lifecycle.current++;
       unsubscribe();
       subscription.remove();
+      clearInterval(timer);
     };
   }, [inspect]);
   if (state === 'clear') return children;
@@ -84,9 +107,9 @@ export function AccountRecoveryGate({ children }: PropsWithChildren) {
               : state === 'pending'
                 ? '서버에서 삭제 결과를 아직 확인하지 못했어요. 기기 데이터를 유지하며 나중에 다시 확인할 수 있어요.'
                 : state === 'expired'
-                  ? '삭제 확인 영수증이 만료됐거나 확인할 수 없어요. 기기 데이터는 유지되며 지원을 통한 확인이 필요해요.'
+                  ? '삭제 결과 확인 기간이 만료됐어요. 자동으로 삭제 완료 처리하지 않아요. 로그아웃한 뒤 다시 로그인해 상태를 확인할 수 있어요.'
                   : state === 'failed'
-                    ? '이 삭제 요청은 실행되지 않았어요. 기기 데이터는 유지되며 지원을 통한 확인이 필요해요.'
+                    ? '이 삭제 요청은 실행되지 않았어요. 로그아웃한 뒤 다시 로그인해서 이용할 수 있어요.'
                     : state === 'retry'
                       ? '기기 데이터 정리가 완료되지 않았어요. 다시 시도해 주세요.'
                       : '기기 데이터를 확인하고 있어요.'
@@ -113,6 +136,22 @@ export function AccountRecoveryGate({ children }: PropsWithChildren) {
               : undefined
         }
       />
+      {['unknown', 'expired', 'failed'].includes(state) && (
+        <ScreenMessage
+          message="삭제 완료로 처리하지 않고 로그아웃해요. 서버의 계정과 학습 기록은 변경하지 않아요."
+          actionLabel="로그아웃하고 나가기"
+          onAction={() => {
+            setState('loading');
+            void accountRecovery
+              .leaveUnconfirmed()
+              .then(() => {
+                completed.current = false;
+                setState('clear');
+              })
+              .catch(() => setState('retry'));
+          }}
+        />
+      )}
     </View>
   );
 }

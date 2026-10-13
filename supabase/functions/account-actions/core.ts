@@ -69,10 +69,16 @@ export async function readSmallJson(request: Request): Promise<Record<string, un
 }
 
 export type Dependencies = {
+  enabled(purpose: Purpose): boolean;
   authenticate(token: string): Promise<Actor>;
   request(actor: Actor, purpose: Purpose): Promise<Challenge>;
+  resume(actor: Actor, purpose: Purpose): Promise<Challenge | null>;
   cancel(actor: Actor, id: string): Promise<boolean>;
   prepareDelete(
+    actor: Actor,
+    id: string,
+  ): Promise<{ operationId: string; receipt: string; expiresAt: string }>;
+  watchDelete(
     actor: Actor,
     id: string,
   ): Promise<{ operationId: string; receipt: string; expiresAt: string }>;
@@ -116,20 +122,27 @@ export function createHandler(deps: Dependencies) {
       const body = await readSmallJson(request);
       const keys: Record<string, string[]> = {
         begin: ['action', 'purpose'],
+        resume: ['action', 'purpose'],
         cancel: ['action', 'id'],
         prepare_delete: ['action', 'id'],
+        watch_delete: ['action', 'id'],
         delete: ['action', 'id', 'operationId'],
         reset_pin: ['action', 'id', 'newPin'],
       };
       const action = typeof body.action === 'string' ? body.action : '';
       if (!keys[action] || Object.keys(body).some((key) => !keys[action].includes(key)))
         throw new ActionError(400, 'INVALID_REQUEST');
-      if (action === 'begin') {
+      if (action === 'begin' || action === 'resume') {
         if (body.purpose !== 'delete_account' && body.purpose !== 'reset_parent_pin')
           throw new ActionError(400, 'INVALID_REQUEST');
+        if (!deps.enabled(body.purpose)) throw new ActionError(503, 'NOT_CONFIGURED');
         // Repeating this is safe: the RPC returns the original record, so the waiting
         // period cannot be restarted, shortened or extended by asking again.
-        const challenge = await deps.request(actor, body.purpose);
+        const challenge =
+          action === 'begin'
+            ? await deps.request(actor, body.purpose)
+            : await deps.resume(actor, body.purpose);
+        if (!challenge) throw new ActionError(409, 'REQUEST_UNAVAILABLE');
         return response({
           id: challenge.id,
           purpose: challenge.purpose,
@@ -144,6 +157,7 @@ export function createHandler(deps: Dependencies) {
         return response({ status: 'cancelled' });
       }
       if (action === 'reset_pin') {
+        if (!deps.enabled('reset_parent_pin')) throw new ActionError(503, 'NOT_CONFIGURED');
         if (typeof body.newPin !== 'string' || !/^[0-9]{4}$/.test(body.newPin))
           throw new ActionError(400, 'INVALID_REQUEST');
         // The RPC consumes the request only once available_at has passed and it is still
@@ -152,6 +166,8 @@ export function createHandler(deps: Dependencies) {
           throw new ActionError(403, 'WAIT_REQUIRED');
         return response({ status: 'pin_reset' });
       }
+      if (!deps.enabled('delete_account')) throw new ActionError(503, 'NOT_CONFIGURED');
+      if (action === 'watch_delete') return response(await deps.watchDelete(actor, body.id));
       if (action === 'prepare_delete') return response(await deps.prepareDelete(actor, body.id));
       if (
         typeof body.operationId !== 'string' ||

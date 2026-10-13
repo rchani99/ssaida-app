@@ -28,7 +28,7 @@ void SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
   const mode = useAppModeStore((state) => state.mode);
-  const { isLoading, isAuthenticated, profile } = useAuth();
+  const { isLoading, isAuthenticated, profile, session } = useAuth();
   const needsOnboarding = isAuthenticated && profile?.onboarding_completed !== true;
 
   useEffect(() => {
@@ -43,7 +43,7 @@ function RootNavigator() {
 
   return (
     <View style={{ flex: 1 }}>
-      {isAuthenticated && !needsOnboarding && <PendingAccountActionBanner />}
+      {isAuthenticated && !needsOnboarding && <PendingAccountActionBanner key={session?.user.id} />}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={!isAuthenticated}>
           <Stack.Screen name="(auth)" />

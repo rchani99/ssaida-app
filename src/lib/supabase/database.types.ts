@@ -558,7 +558,12 @@ export type Database = {
       };
       list_pending_sensitive_actions: {
         Args: Record<string, never>;
-        Returns: { purpose: string; available_at: string; expires_at: string }[];
+        Returns: {
+          purpose: string;
+          available_at: string;
+          expires_at: string;
+          processing: boolean;
+        }[];
       };
       verify_parent_pin: { Args: { parent_pin: string }; Returns: boolean };
     };

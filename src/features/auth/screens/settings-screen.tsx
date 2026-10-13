@@ -23,13 +23,11 @@ import {
 
 import { dashboardIconProps } from '@/design-system/icons';
 import { dashboardTokens as t } from '@/design-system/tokens';
-import { AccountManagementInfoPanel } from '@/features/auth/components/account-management-info-panel';
 import { ChildSettingsPanel } from '@/features/auth/components/child-settings-panel';
 import { ParentPinSettingsPanel } from '@/features/auth/components/parent-pin-settings-panel';
 import { SensitiveAccountPanel } from '@/features/auth/components/sensitive-account-panel';
 import { ServiceInfoPanel } from '@/features/auth/components/service-info-panel';
 import { useAuth } from '@/features/auth/hooks/use-auth';
-import { sensitiveActionsEnabled } from '@/features/auth/services/sensitive-actions-enabled';
 import { DailyTargetSettingsPanel } from '@/features/learning/components/daily-target-settings-panel';
 import { RestWeekdaysPanel } from '@/features/learning/components/rest-weekdays-panel';
 import { useCurrentChild } from '@/features/learning/hooks/use-learning';
@@ -58,16 +56,17 @@ export function SettingsScreen() {
   const [detail, setDetail] = useState<Detail>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [detailBusy, setDetailBusy] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       if (!detail) return;
       const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-        setDetail(null);
+        if (!detailBusy) setDetail(null);
         return true;
       });
       return () => subscription.remove();
-    }, [detail]),
+    }, [detail, detailBusy]),
   );
 
   useLayoutEffect(() => {
@@ -78,6 +77,7 @@ export function SettingsScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="설정 목록으로 돌아가기"
+              disabled={detailBusy}
               onPress={() => setDetail(null)}
               style={styles.headerBack}
             >
@@ -86,7 +86,7 @@ export function SettingsScreen() {
           )
         : undefined,
     });
-  }, [detail, navigation]);
+  }, [detail, detailBusy, navigation]);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -108,15 +108,19 @@ export function SettingsScreen() {
       pin: <ParentPinSettingsPanel />,
       child: <ChildSettingsPanel />,
       service: <ServiceInfoPanel />,
-      deletion: sensitiveActionsEnabled() ? (
-        <SensitiveAccountPanel kind="deletion" onClose={() => setDetail(null)} />
-      ) : (
-        <AccountManagementInfoPanel kind="deletion" />
+      deletion: (
+        <SensitiveAccountPanel
+          kind="deletion"
+          onClose={() => setDetail(null)}
+          onBusyChange={setDetailBusy}
+        />
       ),
-      recovery: sensitiveActionsEnabled() ? (
-        <SensitiveAccountPanel kind="recovery" onClose={() => setDetail(null)} />
-      ) : (
-        <AccountManagementInfoPanel kind="recovery" />
+      recovery: (
+        <SensitiveAccountPanel
+          kind="recovery"
+          onClose={() => setDetail(null)}
+          onBusyChange={setDetailBusy}
+        />
       ),
     } satisfies Record<Exclude<Detail, null>, React.ReactNode>;
     return (
@@ -184,13 +188,13 @@ export function SettingsScreen() {
           icon={ShieldCheck}
           label="부모 PIN 재설정"
           description="PIN을 잊었을 때"
-          value={sensitiveActionsEnabled() ? undefined : '준비 중'}
+          value="72시간 후 재설정"
           onPress={() => setDetail('recovery')}
         />
         <SettingsRow
           icon={UserRound}
           label="계정 삭제"
-          value={sensitiveActionsEnabled() ? undefined : '준비 중'}
+          description="14일 대기 후 자동 삭제"
           onPress={() => setDetail('deletion')}
           last
         />

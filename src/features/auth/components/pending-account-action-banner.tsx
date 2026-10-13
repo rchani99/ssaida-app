@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/design-system/tokens';
+import { ensureDeletionWatch } from '@/features/auth/services/deletion-watch';
 import {
   describeRemaining,
   fetchPendingSensitiveActions,
 } from '@/features/auth/services/pending-sensitive-actions';
+import { subscribeSensitiveActions } from '@/features/auth/services/sensitive-action-events';
 
 import type { PendingSensitiveAction } from '@/features/auth/services/pending-sensitive-actions';
 
@@ -15,16 +17,21 @@ import type { PendingSensitiveAction } from '@/features/auth/services/pending-se
 export function PendingAccountActionBanner() {
   const [pending, setPending] = useState<PendingSensitiveAction[]>([]);
   const alive = useRef(true);
+  const readVersion = useRef(0);
   const refresh = useCallback(async () => {
+    const version = ++readVersion.current;
     try {
       const actions = await fetchPendingSensitiveActions();
-      if (alive.current) setPending(actions);
+      if (alive.current && version === readVersion.current) setPending(actions);
+      if (alive.current && actions.some((action) => action.purpose === 'delete_account'))
+        await ensureDeletionWatch();
     } catch {
       /* Keep the last known state; the server remains the source of truth. */
     }
   }, []);
   useEffect(() => {
     alive.current = true;
+    readVersion.current++;
     // Deferred so the first read is an external subscription, not a synchronous effect render.
     void Promise.resolve().then(() => {
       if (alive.current) void refresh();
@@ -32,9 +39,15 @@ export function PendingAccountActionBanner() {
     const subscription = AppState.addEventListener('change', (next) => {
       if (next === 'active') void refresh();
     });
+    const unsubscribe = subscribeSensitiveActions(() => void refresh());
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') void refresh();
+    }, 30_000);
     return () => {
       alive.current = false;
       subscription.remove();
+      unsubscribe();
+      clearInterval(timer);
     };
   }, [refresh]);
   if (!pending.length) return null;
@@ -45,9 +58,11 @@ export function PendingAccountActionBanner() {
         return (
           <Text accessibilityRole="alert" key={action.purpose} style={styles.text}>
             {action.purpose === 'delete_account'
-              ? remaining
-                ? `계정 삭제가 요청됐어요 · ${remaining} 뒤 삭제 가능 · 요청하지 않았다면 설정에서 취소해 주세요`
-                : '계정 삭제 대기 기간이 끝났어요 · 요청하지 않았다면 설정에서 취소해 주세요'
+              ? action.processing
+                ? '계정 삭제 처리 중이에요 · 삭제가 시작되어 취소할 수 없어요'
+                : remaining
+                  ? `계정 삭제가 요청됐어요 · ${remaining} 뒤부터 자동 삭제 · 요청하지 않았다면 설정에서 취소해 주세요`
+                  : '자동 삭제를 기다리고 있어요 · 처리가 시작되기 전까지 설정에서 취소할 수 있어요'
               : remaining
                 ? `부모 PIN 재설정이 요청됐어요 · ${remaining} 뒤 변경 가능 · 현재 PIN으로 부모님 모드에 들어가면 취소돼요`
                 : '부모 PIN 재설정 대기 기간이 끝났어요 · 현재 PIN으로 부모님 모드에 들어가면 취소돼요'}

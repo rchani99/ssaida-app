@@ -3,7 +3,16 @@ import type { PendingSensitiveAction } from './pending-sensitive-actions';
 import type { SensitivePurpose } from './sensitive-action-flow';
 
 export type SensitiveUiState = {
-  phase: 'intro' | 'requesting' | 'waiting' | 'ready' | 'executing' | 'done' | 'error';
+  phase:
+    | 'intro'
+    | 'requesting'
+    | 'waiting'
+    | 'ready'
+    | 'executing'
+    | 'processing'
+    | 'cancelling'
+    | 'done'
+    | 'error';
   message: string;
   availableAt?: string;
   expiresAt?: string;
@@ -26,6 +35,13 @@ export function createSensitiveActionUiFlow(deps: {
     deps.changed({ phase: next, message, availableAt, expiresAt });
   };
   const settle = (message = '') => {
+    if (expiresAt && now() >= Date.parse(expiresAt)) {
+      availableAt = undefined;
+      expiresAt = undefined;
+      actions = undefined;
+      report('intro', '요청 기간이 만료됐어요. 다시 요청해 주세요.');
+      return;
+    }
     if (!availableAt) {
       report('intro', message);
       return;
@@ -40,13 +56,20 @@ export function createSensitiveActionUiFlow(deps: {
     // Reflects an existing waiting period without creating one. Opening the screen must
     // never start a countdown on its own.
     resume(pending: PendingSensitiveAction | null) {
-      if (['requesting', 'executing', 'done'].includes(phase)) return;
+      if (['requesting', 'executing', 'cancelling', 'done'].includes(phase)) return;
       availableAt = pending?.availableAt;
       expiresAt = pending?.expiresAt;
+      if (pending?.processing) {
+        report(
+          'processing',
+          '계정 삭제가 진행 중이에요. 이제 취소할 수 없어요. 완료되면 로그인 화면으로 안내해 드려요.',
+        );
+        return;
+      }
       settle();
     },
     async start() {
-      if (!deps.enabled() || ['requesting', 'executing', 'done'].includes(phase)) return;
+      if (!deps.enabled() || !['intro', 'error'].includes(phase)) return;
       const current = ++generation;
       report('requesting');
       try {
@@ -57,7 +80,12 @@ export function createSensitiveActionUiFlow(deps: {
         settle();
       } catch {
         if (current === generation)
-          report('error', '요청을 접수하지 못했어요. 잠시 후 다시 시도해 주세요.');
+          report(
+            'error',
+            deps.purpose === 'delete_account'
+              ? '요청 결과를 확인하지 못했어요. 이미 접수됐을 수 있으니 대기 상태를 다시 확인해 주세요.'
+              : '요청을 접수하지 못했어요. 잠시 후 다시 시도해 주세요.',
+          );
       }
     },
     async execute(pin?: string, confirmation?: string) {
@@ -72,9 +100,9 @@ export function createSensitiveActionUiFlow(deps: {
       const current = ++generation;
       report('executing');
       try {
-        // begin() is idempotent, so this resolves the identifier for an existing waiting
-        // period (for example after an app restart) without changing its schedule.
-        const request = await flow().begin(deps.purpose);
+        // Never create a request while executing: it may have expired or been cancelled.
+        const request = await flow().resume(deps.purpose);
+        if (current !== generation) return;
         availableAt = request.availableAt;
         expiresAt = request.expiresAt;
         if (now() < Date.parse(request.availableAt)) {
@@ -97,18 +125,20 @@ export function createSensitiveActionUiFlow(deps: {
           'error',
           deps.purpose === 'delete_account'
             ? '계정 삭제 상태를 확인해 주세요. 완료 여부를 확인하기 전에는 다시 삭제하지 않아요.'
-            : 'PIN을 설정하지 못했어요. 대기 상태를 다시 확인해 주세요.',
+            : '재설정 결과를 확인하지 못했어요. 입력한 새 PIN으로 먼저 확인하거나 대기 상태를 다시 확인해 주세요.',
         );
       }
     },
     // Explicit user decision. Closing the screen must not cancel a waiting period.
     async cancel() {
-      if (phase === 'executing' || phase === 'done') return;
+      if (!deps.enabled() || !['waiting', 'ready'].includes(phase)) return;
       const current = ++generation;
+      report('cancelling');
       try {
         // Resolve the identifier first: a waiting period resumed from the display read has
         // none, and cancelling only local state would leave the server request running.
-        if (!flow().request) await flow().begin(deps.purpose);
+        await flow().resume(deps.purpose);
+        if (current !== generation) return;
         await flow().cancel();
         if (current !== generation) return;
         availableAt = undefined;

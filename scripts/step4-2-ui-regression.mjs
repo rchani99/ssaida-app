@@ -42,6 +42,7 @@ function harness(path, name, mocks) {
   let dirty = false;
   let effects = [];
   const react = {
+    useCallback: (fn) => fn,
     useState(value) {
       const index = cursor++;
       if (!(index in slots)) slots[index] = typeof value === 'function' ? value() : value;
@@ -246,19 +247,15 @@ const helpProps = {
   },
 };
 button(pinHelp.render(helpProps), 'PIN을 잊었어요 · 재설정').onPress();
-assert.ok(text(pinHelp.render(helpProps)).includes('아직 준비 중이에요'));
-assert.ok(!nodes(pinHelp.render(helpProps)).some((node) => node.type === 'SensitivePanel'));
-button(pinHelp.render(helpProps), '돌아가기').onPress();
-button(pinHelp.render(helpProps), '현재 PIN을 알아요 · 변경하기').onPress();
-nodes(pinHelp.render(helpProps))
-  .find((node) => node.type === 'PinSettings')
-  .props.onBusyChange(true);
+const recoveryPanel = nodes(pinHelp.render(helpProps)).find(
+  (node) => node.type === 'SensitivePanel',
+);
+assert.equal(recoveryPanel.props.kind, 'recovery');
+recoveryPanel.props.onBusyChange(true);
 assert.equal(helpBusy, true);
-assert.equal(button(pinHelp.render(helpProps), 'PIN 입력으로 돌아가기').disabled, true);
-nodes(pinHelp.render(helpProps))
-  .find((node) => node.type === 'PinSettings')
-  .props.onBusyChange(false);
-button(pinHelp.render(helpProps), 'PIN 입력으로 돌아가기').onPress();
+recoveryPanel.props.onBusyChange(false);
+assert.equal(helpBusy, false);
+recoveryPanel.props.onClose();
 assert.equal(helpClosed, 1);
 const enabledHelp = harness(
   'src/features/auth/components/parent-pin-help-panel.tsx',

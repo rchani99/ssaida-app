@@ -111,7 +111,7 @@ const post = (handler, token = secret, method = 'POST') =>
   state.failFor = 'user-b';
   const response = await post(handler);
   const text = await response.text();
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 503);
   assert.deepEqual(JSON.parse(text), { deleted: 1, due: 1, stopped: 'DELETE_FAILED' });
   assert.ok(!text.includes('private admin error'));
   assert.ok(!text.includes('user-b'));

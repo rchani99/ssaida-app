@@ -10,9 +10,10 @@ import type { Actor, Challenge } from './core.ts';
 const url = Deno.env.get('SUPABASE_URL');
 const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const enabled = Deno.env.get('ACCOUNT_ACTIONS_ENABLED') === 'true';
+const pinRecoveryEnabled = Deno.env.get('PIN_RECOVERY_ENABLED') === 'true';
 const purgeSecret = Deno.env.get('ACCOUNT_ACTIONS_PURGE_SECRET');
 
-if (!enabled || !url || !key) {
+if ((!enabled && !pinRecoveryEnabled) || !url || !key) {
   Deno.serve(() => Response.json({ code: 'NOT_CONFIGURED' }, { status: 503 }));
 } else {
   const admin = createClient(url, key, {
@@ -25,6 +26,10 @@ if (!enabled || !url || !key) {
   };
   const args = (actor: Actor, id: string) => ({ p_user_id: actor.id, p_id: id });
   const handler = createHandler({
+    enabled: (purpose) =>
+      purpose === 'delete_account'
+        ? enabled && Boolean(purgeSecret)
+        : enabled || pinRecoveryEnabled,
     now: Date.now,
     async authenticate(token) {
       // Network check: deleted users cannot reuse an otherwise unexpired JWT here.
@@ -36,12 +41,43 @@ if (!enabled || !url || !key) {
       return { id: data.user.id, googleSub: sub };
     },
     async request(actor, purpose) {
+      if (purpose === 'delete_account') {
+        const { data, error } = await admin
+          .from('sensitive_action_challenges')
+          .select('id')
+          .eq('user_id', actor.id)
+          .eq('purpose', purpose)
+          .eq('status', 'consumed')
+          .limit(1);
+        if (error || data?.length) throw new ActionError(409, 'ACTION_UNAVAILABLE');
+      }
       return (await rpc('request_sensitive_action', {
         p_user_id: actor.id,
         p_purpose: purpose,
       })) as Challenge;
     },
+    async resume(actor, purpose) {
+      const { data, error } = await admin
+        .from('sensitive_action_challenges')
+        .select('id,user_id,purpose,status,created_at,available_at,expires_at')
+        .eq('user_id', actor.id)
+        .eq('purpose', purpose)
+        .in('status', purpose === 'delete_account' ? ['pending', 'consumed'] : ['pending'])
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
+      if (error) throw new ActionError(409, 'ACTION_UNAVAILABLE');
+      return data as Challenge | null;
+    },
     cancel: (actor, id) => rpc('cancel_sensitive_action', args(actor, id)),
+    async watchDelete(actor, id) {
+      const receipt = generateReceipt();
+      const operation = await rpc('watch_account_deletion', {
+        p_user_id: actor.id,
+        p_challenge_id: id,
+        p_receipt_hash: await hashReceipt(receipt),
+      });
+      return { ...operation, receipt };
+    },
     async prepareDelete(actor, id) {
       const receipt = generateReceipt();
       const operation = await rpc('prepare_account_deletion', {
@@ -70,7 +106,7 @@ if (!enabled || !url || !key) {
     },
   });
   const purge = createPurgeHandler({
-    secret: purgeSecret,
+    secret: enabled ? purgeSecret : undefined,
     now: Date.now,
     claim: () => rpc('claim_due_account_deletion', {}) as Promise<string | null>,
     due: () => rpc('count_due_account_deletions', {}) as Promise<number>,

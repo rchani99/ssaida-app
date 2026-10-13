@@ -44,14 +44,17 @@ export function createPurgeHandler(deps: PurgeDependencies) {
         try {
           await deps.deleteUser(userId);
         } catch {
-          // The request stays pending and claimed; the next run retries after the backoff.
+          // The request stays consumed and claimed; the next run retries after the backoff.
           // Never echo the SDK error or the account identifier.
           stopped = 'DELETE_FAILED';
           break;
         }
         deleted++;
       }
-      return response({ deleted, due: await deps.due(), ...(stopped ? { stopped } : {}) });
+      return response(
+        { deleted, due: await deps.due(), ...(stopped ? { stopped } : {}) },
+        stopped ? 503 : 200,
+      );
     } catch (error) {
       return error instanceof ActionError
         ? response({ code: error.code }, error.status)

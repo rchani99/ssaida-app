@@ -2,7 +2,7 @@ export type DeletionReceipt = { operationId: string; receipt: string; expiresAt:
 export type DeletionStatus = 'pending' | 'deleted' | 'failed' | 'expired';
 export type RecoveryMarker = {
   version: 1;
-  phase: 'unconfirmed' | 'cleanup';
+  phase: 'watching' | 'unconfirmed' | 'cleanup';
   userId: string;
   operation?: DeletionReceipt;
 };
@@ -50,7 +50,8 @@ export function createAccountRecovery(deps: RecoveryDependencies) {
     if (
       !marker ||
       marker.version !== 1 ||
-      !['unconfirmed', 'cleanup'].includes(marker.phase) ||
+      !['watching', 'unconfirmed', 'cleanup'].includes(marker.phase) ||
+      (marker.phase === 'watching' && !isDeletionReceipt(marker.operation)) ||
       typeof marker.userId !== 'string' ||
       !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(marker.userId) ||
       (marker.operation !== undefined && !isDeletionReceipt(marker.operation)) ||
@@ -75,11 +76,26 @@ export function createAccountRecovery(deps: RecoveryDependencies) {
   };
   return {
     read,
+    async watch(userId: string, operation: DeletionReceipt) {
+      if (running || preparing) throw new Error('RECOVERY_REQUIRED');
+      preparing = true;
+      try {
+        const marker = await read();
+        if (marker && marker.phase !== 'watching') throw new Error('RECOVERY_REQUIRED');
+        if (!isDeletionReceipt(operation)) throw new Error('INVALID_RECEIPT');
+        await ensureOwner(userId);
+        await save(userId, 'watching', operation);
+      } finally {
+        preparing = false;
+      }
+    },
     async prepare(userId: string, operation?: DeletionReceipt) {
       if (running || preparing) throw new Error('RECOVERY_REQUIRED');
       preparing = true;
       try {
-        if (await read()) throw new Error('RECOVERY_REQUIRED');
+        const previous = await read();
+        if (previous && (previous.phase !== 'watching' || previous.userId !== userId))
+          throw new Error('RECOVERY_REQUIRED');
         if (operation !== undefined && !isDeletionReceipt(operation))
           throw new Error('INVALID_RECEIPT');
         await ensureOwner(userId);
@@ -102,11 +118,52 @@ export function createAccountRecovery(deps: RecoveryDependencies) {
       if (marker.userId !== userId) throw new Error('RECOVERY_REQUIRED');
       await save(userId, 'cleanup', marker.operation);
     },
+    // Explicit logout escape for an expired/legacy receipt or an unexecuted request.
+    // This does not claim deletion or remove account preferences/learning records.
+    async leaveUnconfirmed() {
+      if (running || preparing) throw new Error('RECOVERY_REQUIRED');
+      preparing = true;
+      try {
+        const marker = await read();
+        if (!marker || marker.phase !== 'unconfirmed') throw new Error('RECOVERY_REQUIRED');
+        await ensureOwner(marker.userId);
+        await deps.clearCache();
+        await deps.clearSession();
+        await deps.remove();
+        deps.changed();
+      } finally {
+        preparing = false;
+      }
+    },
     resume(): Promise<void> {
+      if (preparing) return Promise.reject(new Error('RECOVERY_REQUIRED'));
       if (running) return running;
       running = (async () => {
         let marker = await read();
         if (!marker) return;
+        if (marker.phase === 'watching') {
+          const current = await deps.currentUserId();
+          if (current && current !== marker.userId) return;
+          if (!deps.deletionStatus) return;
+          const watched = marker;
+          const status = await deps.deletionStatus(marker.operation!);
+          marker = await read();
+          if (
+            !marker ||
+            marker.phase !== 'watching' ||
+            marker.userId !== watched.userId ||
+            marker.operation?.operationId !== watched.operation?.operationId
+          )
+            return;
+          if (status === 'pending') return;
+          if (status !== 'deleted') {
+            await deps.remove();
+            deps.changed();
+            return;
+          }
+          await save(marker.userId, 'cleanup', marker.operation);
+          marker = { ...marker, phase: 'cleanup' };
+        }
         if (marker.phase !== 'cleanup') {
           if (!marker.operation || !deps.deletionStatus) throw new Error('DELETE_OUTCOME_UNKNOWN');
           const previous = marker;

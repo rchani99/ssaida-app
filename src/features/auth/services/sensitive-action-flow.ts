@@ -26,31 +26,43 @@ export function createSensitiveActionFlow(deps: SensitiveActionDependencies) {
   const sameUser = async () => {
     if (!owner || (await deps.currentUserId()) !== owner) throw new Error('ACCOUNT_CHANGED');
   };
+  const resolve = async (purpose: SensitivePurpose, action: 'begin' | 'resume') => {
+    if (busy) throw new Error('ACTION_IN_PROGRESS');
+    busy = true;
+    cancelled = false;
+    request = null;
+    const current = ++generation;
+    try {
+      const user = await deps.currentUserId();
+      if (!user) throw new Error('AUTH_REQUIRED');
+      if (owner && owner !== user) throw new Error('ACCOUNT_CHANGED');
+      owner = user;
+      const result = await deps.invoke({ action, purpose });
+      if (
+        !result.id ||
+        result.purpose !== purpose ||
+        !Number.isFinite(Date.parse(result.availableAt ?? '')) ||
+        !Number.isFinite(Date.parse(result.expiresAt ?? '')) ||
+        Date.parse(result.expiresAt!) <= Date.parse(result.availableAt!)
+      )
+        throw new Error('INVALID_RESPONSE');
+      if (cancelled || current !== generation) throw new Error('CANCELLED');
+      await sameUser();
+      request = result as SensitiveRequest;
+      return request;
+    } finally {
+      busy = false;
+    }
+  };
   return {
     get request() {
       return request;
     },
     // Idempotent: the server returns the original record, so pressing this again after a
     // restart resumes the same window instead of starting a longer one.
-    async begin(purpose: SensitivePurpose) {
-      if (busy) throw new Error('ACTION_IN_PROGRESS');
-      busy = true;
-      cancelled = false;
-      const current = ++generation;
-      try {
-        owner = await deps.currentUserId();
-        if (!owner) throw new Error('AUTH_REQUIRED');
-        const result = await deps.invoke({ action: 'begin', purpose });
-        if (!result.id || !result.availableAt || !result.expiresAt || result.purpose !== purpose)
-          throw new Error('INVALID_RESPONSE');
-        if (cancelled || current !== generation) throw new Error('CANCELLED');
-        await sameUser();
-        request = result as SensitiveRequest;
-        return request;
-      } finally {
-        busy = false;
-      }
-    },
+    begin: (purpose: SensitivePurpose) => resolve(purpose, 'begin'),
+    // Reading an existing request must never start a new waiting period.
+    resume: (purpose: SensitivePurpose) => resolve(purpose, 'resume'),
     async cancel() {
       // Cancellation cannot undo an already submitted destructive operation.
       if (busy && request) throw new Error('ACTION_IN_PROGRESS');

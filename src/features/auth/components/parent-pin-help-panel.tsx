@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { ParentPinSettingsPanel } from '@/features/auth/components/parent-pin-settings-panel';
 import { SensitiveAccountPanel } from '@/features/auth/components/sensitive-account-panel';
-import { sensitiveActionsEnabled } from '@/features/auth/services/sensitive-actions-enabled';
 import {
   LearningButton,
   learningStyles as s,
@@ -18,18 +17,17 @@ export function ParentPinHelpPanel({
 }) {
   const [page, setPage] = useState<'menu' | 'change' | 'recovery'>('menu');
   const [busy, setBusy] = useState(false);
-  const back = () => {
-    if (!busy) setPage('menu');
-  };
+  const handleBusyChange = useCallback(
+    (value: boolean) => {
+      setBusy(value);
+      onBusyChange(value);
+    },
+    [onBusyChange],
+  );
   if (page === 'change') {
     return (
       <View style={{ gap: 16 }}>
-        <ParentPinSettingsPanel
-          onBusyChange={(value) => {
-            setBusy(value);
-            onBusyChange(value);
-          }}
-        />
+        <ParentPinSettingsPanel onBusyChange={handleBusyChange} />
         <LearningButton
           label="PIN 입력으로 돌아가기"
           variant="outline"
@@ -40,19 +38,13 @@ export function ParentPinHelpPanel({
     );
   }
   if (page === 'recovery') {
-    return sensitiveActionsEnabled() ? (
-      <SensitiveAccountPanel kind="recovery" onClose={back} />
-    ) : (
-      <View style={{ gap: 16 }}>
-        <Text accessibilityRole="header" style={s.title}>
-          PIN을 잊으셨나요?
-        </Text>
-        <Text style={s.text}>PIN을 잊었을 때 재설정하는 기능은 아직 준비 중이에요.</Text>
-        <Text style={s.secondary}>
-          기존 PIN은 조회할 수 없어요. 로그아웃하거나 다시 로그인해도 PIN은 초기화되지 않아요.
-        </Text>
-        <LearningButton label="돌아가기" variant="outline" onPress={back} />
-      </View>
+    return (
+      <SensitiveAccountPanel
+        kind="recovery"
+        completionLabel="PIN 입력으로 돌아가기"
+        onClose={onClose}
+        onBusyChange={handleBusyChange}
+      />
     );
   }
   return (

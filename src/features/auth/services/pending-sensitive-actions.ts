@@ -6,6 +6,7 @@ export type PendingSensitiveAction = {
   purpose: SensitivePurpose;
   availableAt: string;
   expiresAt: string;
+  processing?: boolean;
 };
 
 // Display-only read for the countdown banner. The RPC resolves the owner from auth.uid()
@@ -19,7 +20,14 @@ export async function fetchPendingSensitiveActions(): Promise<PendingSensitiveAc
     typeof row.expires_at === 'string' &&
     Number.isFinite(Date.parse(row.available_at)) &&
     Number.isFinite(Date.parse(row.expires_at))
-      ? [{ purpose: row.purpose, availableAt: row.available_at, expiresAt: row.expires_at }]
+      ? [
+          {
+            purpose: row.purpose,
+            availableAt: row.available_at,
+            expiresAt: row.expires_at,
+            processing: row.processing === true,
+          },
+        ]
       : [],
   );
 }

@@ -146,9 +146,9 @@ begin
   if public.count_due_account_deletions() <> 1 then raise exception 'Due count wrong'; end if;
   claimed := public.claim_due_account_deletion();
   if claimed is distinct from a then raise exception 'Due deletion not claimed'; end if;
-  -- Claiming must not consume: an Admin failure has to stay retryable inside the window.
-  if not exists (select 1 from public.sensitive_action_challenges where id=request.id and status='pending') then
-    raise exception 'Claim consumed the request';
+  -- Claiming closes cancellation; an Admin failure stays retryable by the worker.
+  if not exists (select 1 from public.sensitive_action_challenges where id=request.id and status='consumed') then
+    raise exception 'Claim did not fence cancellation';
   end if;
   if public.claim_due_account_deletion() is not null then raise exception 'Claim ignored its backoff'; end if;
   update public.sensitive_action_challenges
@@ -159,7 +159,9 @@ begin
     raise exception 'Tiny backoff accepted';
   exception when sqlstate '22023' then null;
   end;
-  perform public.cancel_sensitive_action(a,request.id);
+  if public.cancel_sensitive_action(a,request.id) then raise exception 'Claimed deletion cancelled'; end if;
+  -- Fixture reset for the separate waiting/expired cases below.
+  update public.sensitive_action_challenges set status='cancelled' where id=request.id;
   if public.claim_due_account_deletion() is not null then raise exception 'Cancelled request claimed'; end if;
   if public.count_due_account_deletions() <> 0 then raise exception 'Cancelled request counted'; end if;
 

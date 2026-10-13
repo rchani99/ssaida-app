@@ -50,7 +50,10 @@ const react = {
 };
 const imports = {
   react,
-  'react/jsx-runtime': { jsx: (type, props) => ({ type, props }) },
+  'react/jsx-runtime': {
+    jsx: (type, props) => ({ type, props }),
+    jsxs: (type, props) => ({ type, props }),
+  },
   'expo-router': { SplashScreen: { hideAsync: async () => {} } },
   'react-native': {
     View: 'View',
@@ -69,8 +72,19 @@ const imports = {
   '@/features/auth/services/account-recovery': {
     accountRecovery: {
       read: async () => marker,
+      leaveUnconfirmed: async () => {
+        marker = null;
+        listener?.();
+      },
       resume: async () => {
         resumes++;
+        if (marker.phase === 'watching') {
+          if (receiptStatus === 'offline') throw new Error('offline');
+          if (receiptStatus !== 'deleted') return;
+          marker.phase = 'cleanup';
+          listener?.();
+          await Promise.resolve();
+        }
         if (marker.phase === 'unconfirmed' && marker.operation) {
           if (receiptStatus !== 'deleted')
             throw new Error(
@@ -135,9 +149,9 @@ const restart = () => {
   assert.notEqual(tree, child, 'account providers must not mount before marker inspection');
 };
 const finish = async () => {
-  assert.equal(tree.props.children.props.message, '계정 삭제가 완료됐어요');
-  assert.equal(tree.props.children.props.actionLabel, '로그인 화면으로');
-  tree.props.children.props.onAction();
+  assert.equal(tree.props.children[0].props.message, '계정 삭제가 완료됐어요');
+  assert.equal(tree.props.children[0].props.actionLabel, '로그인 화면으로');
+  tree.props.children[0].props.onAction();
   await settle();
 };
 restart();
@@ -148,12 +162,12 @@ failure = true;
 listener();
 await settle();
 assert.notEqual(tree, child);
-assert.equal(tree.props.children.props.actionLabel, '정리 다시 시도');
+assert.equal(tree.props.children[0].props.actionLabel, '정리 다시 시도');
 restart();
 await settle();
 assert.notEqual(tree, child, 'partial cleanup remains blocked after restart');
 failure = false;
-tree.props.children.props.onAction();
+tree.props.children[0].props.onAction();
 await settle();
 assert.equal(marker, null);
 await finish();
@@ -171,7 +185,7 @@ foreground('active');
 await settle();
 assert.equal(resumes, before, 'unknown deletion must never trigger local cleanup');
 assert.notEqual(tree, child);
-assert.equal(tree.props.children.props.onAction, undefined);
+assert.equal(tree.props.children[0].props.onAction, undefined);
 assert.ok(marker);
 for (const status of ['pending', 'expired', 'failed']) {
   receiptStatus = status;
@@ -179,7 +193,7 @@ for (const status of ['pending', 'expired', 'failed']) {
   restart();
   await settle();
   assert.notEqual(tree, child);
-  assert.equal(tree.props.children.props.actionLabel, '삭제 결과 다시 확인');
+  assert.equal(tree.props.children[0].props.actionLabel, '삭제 결과 다시 확인');
   assert.ok(marker);
 }
 receiptStatus = 'deleted';
@@ -191,3 +205,28 @@ assert.equal(marker, null);
 console.log(
   'PASS recovery gate: startup isolation, restart/retry after failure, proof-free resume and unknown-outcome blocking',
 );
+
+for (const slot of slots) slot?.cleanup?.();
+
+for (const status of ['pending', 'offline']) {
+  marker = { phase: 'watching', operation: {} };
+  receiptStatus = status;
+  restart();
+  await settle();
+  assert.equal(tree, child, 'waiting/offline watcher must allow account use and cancellation');
+}
+receiptStatus = 'deleted';
+foreground('active');
+await settle();
+await finish();
+assert.equal(tree, child);
+marker = { phase: 'unconfirmed', operation: {} };
+receiptStatus = 'failed';
+restart();
+await settle();
+assert.equal(tree.props.children[1].props.actionLabel, '로그아웃하고 나가기');
+tree.props.children[1].props.onAction();
+await settle();
+assert.equal(tree, child);
+assert.equal(marker, null);
+for (const slot of slots) slot?.cleanup?.();

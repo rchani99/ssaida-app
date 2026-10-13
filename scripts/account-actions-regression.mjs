@@ -72,6 +72,12 @@ const usable = (who, id, purpose) =>
   Date.parse(request.available_at) <= now &&
   Date.parse(request.expires_at) > now;
 const handler = createHandler({
+  watchDelete: async () => operation,
+  enabled: () => true,
+  resume: async (who, purpose) =>
+    request.user_id === who.id && request.purpose === purpose && request.status === 'pending'
+      ? request
+      : null,
   now: () => now,
   async authenticate(token) {
     if (token === 'b') return other;
@@ -328,6 +334,7 @@ const { createAccountActions } = load('src/features/auth/services/account-action
     },
   },
   '@/features/auth/services/sensitive-action-flow': { createSensitiveActionFlow },
+  '@/features/auth/services/sensitive-action-events': { notifySensitiveActionsChanged() {} },
   '@/lib/query-client': {
     queryClient: {
       cancelQueries: async () => cleanupEvents.push('cancelQueries'),
@@ -352,7 +359,8 @@ const { createAccountActions } = load('src/features/auth/services/account-action
       },
       functions: {
         invoke: async (_name, { body }) => {
-          if (body.action === 'prepare_delete') return { data: operation, error: null };
+          if (body.action === 'prepare_delete' || body.action === 'watch_delete')
+            return { data: operation, error: null };
           if (body.action === 'delete') {
             assert.equal(body.operationId, operation.operationId);
             assert.equal(

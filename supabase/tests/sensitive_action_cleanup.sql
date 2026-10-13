@@ -25,9 +25,9 @@ begin
     values(owner_id,'reset_parent_pin','consumed',
       pg_catalog.now()-interval '4 days',pg_catalog.now()-interval '1 day',pg_catalog.now()-interval '1 hour');
   removed := public.cleanup_sensitive_action_challenges();
-  if removed <> 4 then raise exception 'Expired records not removed'; end if;
+  if removed <> 3 then raise exception 'Expired records not removed'; end if;
   select count(*) into kept from public.sensitive_action_challenges where user_id = any(owners);
-  if kept <> 5 then raise exception 'Active or grace-period record removed'; end if;
+  if kept <> 6 then raise exception 'Active, claimed or grace-period record removed'; end if;
   if public.cleanup_sensitive_action_challenges() <> 0 then raise exception 'Cleanup not idempotent'; end if;
 end;
 $$;

@@ -122,7 +122,8 @@ export async function saveChildName(input: { childId: string; name: string }) {
 }
 
 export async function saveDailyTargetMinutes(input: { childId: string; minutes: number }) {
-  if (![30, 45, 60, 90].includes(input.minutes)) throw new Error('학습 시간을 확인해 주세요.');
+  if (!Number.isInteger(input.minutes) || input.minutes < 10 || input.minutes > 240)
+    throw new Error('하루 목표는 10~240분 사이로 입력해 주세요.');
   const { error } = await getSupabaseClient()
     .from('children')
     .update({ daily_target_minutes: input.minutes })

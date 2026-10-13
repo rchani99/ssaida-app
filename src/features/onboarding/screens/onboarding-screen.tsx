@@ -26,6 +26,8 @@ export function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [childName, setChildName] = useState('');
   const [dailyTargetMinutes, setDailyTargetMinutes] = useState<number | null>(null);
+  const [customTarget, setCustomTarget] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState('');
   const [pin, setPin] = useState('');
   const [pinConfirmation, setPinConfirmation] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -38,7 +40,11 @@ export function OnboardingScreen() {
       return;
     }
     if (step === 1 && dailyTargetMinutes === null) {
-      setErrorMessage('하루 목표 공부시간을 선택해 주세요.');
+      setErrorMessage(customTarget ? '하루 목표 공부시간을 입력해 주세요.' : '하루 목표 공부시간을 선택해 주세요.');
+      return;
+    }
+    if (step === 1 && (dailyTargetMinutes! < 10 || dailyTargetMinutes! > 240)) {
+      setErrorMessage('하루 목표는 10~240분 사이로 입력해 주세요.');
       return;
     }
     setStep((current) => Math.min(current + 1, 2));
@@ -97,13 +103,17 @@ export function OnboardingScreen() {
             {step === 1 && (
               <View style={styles.optionList}>
                 {TARGET_OPTIONS.map((minutes) => {
-                  const selected = dailyTargetMinutes === minutes;
+                  const selected = !customTarget && dailyTargetMinutes === minutes;
                   return (
                     <Pressable
                       accessibilityRole="radio"
                       accessibilityState={{ selected }}
                       key={minutes}
-                      onPress={() => setDailyTargetMinutes(minutes)}
+                      onPress={() => {
+                        setCustomTarget(false);
+                        setDailyTargetMinutes(minutes);
+                        setErrorMessage(null);
+                      }}
                       style={[styles.option, selected && styles.optionSelected]}
                     >
                       <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
@@ -112,6 +122,39 @@ export function OnboardingScreen() {
                     </Pressable>
                   );
                 })}
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: customTarget }}
+                  onPress={() => {
+                    setCustomTarget(true);
+                    setDailyTargetMinutes(customMinutes ? Number(customMinutes) : null);
+                    setErrorMessage(null);
+                  }}
+                  style={[styles.option, customTarget && styles.optionSelected]}
+                >
+                  <Text style={[styles.optionText, customTarget && styles.optionTextSelected]}>직접 입력</Text>
+                </Pressable>
+                {customTarget && (
+                  <View style={styles.field}>
+                    <Text style={styles.label}>하루 목표 공부시간 (분)</Text>
+                    <TextInput
+                      accessibilityLabel="하루 목표 공부시간, 10~240분"
+                      keyboardType="number-pad"
+                      maxLength={3}
+                      placeholder="예: 75"
+                      placeholderTextColor={colors.textSecondary}
+                      value={customMinutes}
+                      onChangeText={(value) => {
+                        const digits = value.replace(/\D/g, '');
+                        setCustomMinutes(digits);
+                        setDailyTargetMinutes(digits ? Number(digits) : null);
+                        setErrorMessage(null);
+                      }}
+                      style={styles.input}
+                    />
+                    <Text style={styles.description}>10~240분 사이로 입력해 주세요.</Text>
+                  </View>
+                )}
               </View>
             )}
 
@@ -142,7 +185,7 @@ export function OnboardingScreen() {
               </View>
             )}
 
-            {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
+            {errorMessage && <Text accessibilityRole="alert" style={styles.error}>{errorMessage}</Text>}
           </View>
 
           <View style={styles.footer}>
@@ -163,7 +206,7 @@ export function OnboardingScreen() {
               accessibilityRole="button"
               disabled={isSubmitting}
               onPress={step === 2 ? submit : goNext}
-              style={[styles.primaryButton, step > 0 && styles.flexButton]}
+              style={styles.primaryButton}
             >
               {isSubmitting ? (
                 <ActivityIndicator color={colors.card} />
@@ -202,7 +245,7 @@ const styles = StyleSheet.create({
   progress: { color: colors.primary, fontSize: 14, fontWeight: '700' },
   title: { color: colors.textPrimary, fontSize: 28, fontWeight: '800' },
   description: { color: colors.textSecondary, fontSize: 15, lineHeight: 22 },
-  content: { flex: 1, paddingTop: spacing.xxl, gap: spacing.md },
+  content: { flexGrow: 1, paddingTop: spacing.xxl, gap: spacing.md },
   input: {
     height: sizing.buttonHeight,
     paddingHorizontal: spacing.md,
@@ -232,23 +275,28 @@ const styles = StyleSheet.create({
   error: { color: colors.error, fontSize: 13 },
   footer: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.lg },
   backButton: {
-    width: 96,
-    height: sizing.buttonHeight,
+    flex: 1,
+    minWidth: 0,
+    minHeight: sizing.buttonHeight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.button,
   },
-  backButtonText: { color: colors.textSecondary, fontSize: 16, fontWeight: '700' },
+  backButtonText: { color: colors.textSecondary, fontSize: 16, fontWeight: '700', textAlign: 'center' },
   primaryButton: {
-    width: '100%',
-    height: sizing.buttonHeight,
+    flex: 2,
+    minWidth: 0,
+    minHeight: sizing.buttonHeight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.button,
     backgroundColor: colors.primary,
   },
-  flexButton: { flex: 1, width: undefined },
-  primaryButtonText: { color: colors.card, fontSize: 16, fontWeight: '700' },
+  primaryButtonText: { color: colors.card, fontSize: 16, fontWeight: '700', textAlign: 'center' },
 });

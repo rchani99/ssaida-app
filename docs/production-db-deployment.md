@@ -65,11 +65,11 @@ pnpm dlx supabase db push --linked --dry-run --workdir $deployPath
 `db push --linked`로 적용했다. 기존 20개와 운영 카탈로그는 재실행하지 않았다.
 seed와 별도 역할 설정은 적용하지 않았다.
 
-| 적용 파일 | 원본 파일 SHA-256 |
-| --- | --- |
-| `202610130002_account_deletion_mvp.sql` | `3B89A59501C98DCC00F47CF0E2836FB677289F10D71E70E743E044961BF816F9` |
-| `202610130003_study_item_apply_today.sql` | `B35A252642735084724562165D7549CC946B8288E632C3F017B3739BE90AFE13` |
-| `202610140001_daily_earned_points.sql` | `64397C2FCFA6EFE7DA596C0F4050B9BB8C861C6C2B8F137AFCBF30A1911B8A2C` |
+| 적용 파일                                   | 원본 파일 SHA-256                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------ |
+| `202610130002_account_deletion_mvp.sql`     | `3B89A59501C98DCC00F47CF0E2836FB677289F10D71E70E743E044961BF816F9` |
+| `202610130003_study_item_apply_today.sql`   | `B35A252642735084724562165D7549CC946B8288E632C3F017B3739BE90AFE13` |
+| `202610140001_daily_earned_points.sql`      | `64397C2FCFA6EFE7DA596C0F4050B9BB8C861C6C2B8F137AFCBF30A1911B8A2C` |
 | `202610140002_change_pin_cancels_reset.sql` | `28E4F84743053D6E0DCF587A3B8F0450B8632FC8F88D0E9F9EAE6D9402716EA2` |
 
 적용 후 읽기 전용 검증:
@@ -91,3 +91,50 @@ seed와 별도 역할 설정은 적용하지 않았다.
 실행하지 않았다. 앱 실기기 검증은 별도다.
 
 Edge Function, Cron, Vault/secrets, OAuth 및 EAS 설정은 변경하지 않았다.
+
+## 2026-10-18 계정 삭제 정책 확정 및 운영 활성화
+
+사용자 승인 범위: 계정 삭제의 최종 정책 검토·구현·검증과 운영 DB·함수·자동 삭제 예약 적용.
+정책 원본은 [계정 삭제 정책](account-deletion-policy.md)이다.
+
+- 운영 `thinmctzgynmtuihirng`에 `202610180001_durable_account_deletion.sql` 적용.
+  SHA-256: `24FF64BE684B1119C9A47FECB7BEAC4580733F71B77022049BAB44603A401014`.
+  사전 dry-run은 이 파일 1개만, 적용 후 dry-run은 미적용 0개. 전체 이력 25개.
+- 14일 대기는 유지한다. 삭제 요청은 취소·완료까지 보존하고 장기 장애 뒤에도 처리한다.
+  PIN 재설정의 기록 정리가 진행 중인 삭제를 지우지 않게 수정했다.
+  신규 요청을 실패 재시도보다 우선하여 반복 실패 하나가 전체 삭제를 막지 않게 했다.
+- 과거 정책에서 이미 만료된 미처리 요청을 되살리지 않는다. 운영 사전 조회에서
+  삭제 요청과 영수증은 모두 0건이었다.
+- `account-actions` Edge Function 배포: ACTIVE, version 2, `verify_jwt=false`.
+  서버 플래그 `ACCOUNT_ACTIONS_ENABLED=true`, `PIN_RECOVERY_ENABLED=true`.
+- 전용 32바이트 무작위 비밀값을 Edge와 Vault에 일치하게 설치했다. 값은 저장소·검증 출력에
+  기록하지 않았다. 작업 중 사용한 임시 비밀 파일은 제거했다.
+- `pg_cron`, `pg_net` 설치 및 Vault URL/비밀 설정 완료.
+  `ssaida-account-deletion-purge`: `0 * * * *` 활성.
+  `ssaida-account-action-cleanup`: `15 * * * *` 활성.
+
+검증 결과:
+
+- 앱 TypeScript·ESLint·수정 파일 Prettier·Deno Edge 타입 검사 통과.
+- 일반 회귀 스크립트 45개 통과, 실패 0개. DB 전용 9개는 일반 실행에서 제외되며,
+  계정 삭제에 필요한 격리 DB/Auth 회귀는 별도로 실행하여 통과했다.
+- 격리 DB/Auth: 전체 마이그레이션 재생, 지연·취소·권한·계정 분리·PIN 재설정,
+  장기 장애·PIN 요청 시 삭제 보존·재시도 우선순위·실제 Auth Admin 삭제·FK cascade,
+  삭제 후 기존 세션 조회 및 refresh 거부, 영수증 commit/rollback·경합 검증 통과.
+- 운영 HTTP: 인증 없는 계정 작업과 purge는 401, 알 수 없는 영수증 상태 조회는
+  200/`expired`. 응답의 `Cache-Control: no-store` 확인.
+- 운영 pg_net 시험 요청 ID 1: HTTP 200, `deleted=0`, `due=0`, 시간 초과 없음.
+- 등록한 두 cron을 일시적으로 매분 실행하여 2026-10-18 11:06 KST 실제 실행 이력의
+  `succeeded` 확인. cron에서 생성한 HTTP 요청 ID 2도 200, `deleted=0`, `due=0`.
+  검증 뒤 최종 매시간 일정으로 복원하고 활성 상태를 다시 확인했다.
+- 운영 후 조회: Auth 사용자 2명, 프로필 1개, 공용 카탈로그 36개, Storage 객체 0개,
+  처리 대상 0건. 실제 운영 사용자 계정 삭제·테스트용 시각 조작은 하지 않았다.
+  변경한 관리 RPC의 anon/authenticated 실행 허용 또는 service_role 권한 누락 0건.
+
+운영 조회 SQL은 `supabase/snippets/account-deletion-health.sql`에 있다.
+정기 조회 시 실행 누락·HTTP 실패·적체를 확인한다. 외부 알림 채널 연결은 이번 작업에 포함하지 않았다.
+로컬의 상세 배포·검증 SQL은 Git 제외 운영 배포 폴더에 보관한다.
+
+이 배포에는 새 앱 바이너리 배포, 실기기 Google 삭제 흐름 검증, 공개 웹 삭제 요청 페이지,
+공개 개인정보처리방침의 인프라 보관 설정 확정이 포함되지 않는다. 스토어 출시 때 이 항목을
+확인한다. 운영 백엔드의 자동 삭제는 이번 배포로 활성화되었다.

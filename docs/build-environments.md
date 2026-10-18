@@ -49,15 +49,26 @@ iOS development는 simulator Debug이며 실제 iOS 출시 검증은 별도입�
 EAS `appVersionSource: remote`, production `autoIncrement: true`를 사용합니다.
 `app.json`의 versionCode 1 / buildNumber "1"은 초기 기준이며, EAS 연결 후 원격 초기값을
 확인해야 합니다. 로컬 빌드에는 원격 자동 증가가 적용되지 않습니다. 사용자 버전은 1.0.0입니다.
-package/bundleIdentifier `com.ssaida.app`, slug `ssaida-app`, scheme `ssaida`는 유지합니다.
-표시 이름만 `쌓이다`로 맞췄습니다. 같은 package라 DEV/production 동시 설치가 안 되며
+package/bundleIdentifier `com.ssaida.app`, scheme `ssaida`는 유지합니다.
+2026-10-16 기존 Expo 프로젝트에 맞춰 slug는 `ssahida-app`, owner는 `ssahidas-team`,
+`extra.eas.projectId`는 `22da5823-40f1-488c-88a7-197639eaae9a`로 연결했습니다.
+표시 이름은 `쌓이다`입니다. 같은 package라 DEV/production 동시 설치가 안 되며
 서명이 다르면 교체 설치도 실패할 수 있습니다.
 
-사람이 EAS 프로젝트를 연결하고 해당 environment에 공개 변수를 등록해야 합니다.
+2026-10-16 Expo 웹 화면에서 기존 프로젝트와 production의 URL/ref/공개 키/callback
+변수 등록을 확인했습니다. 공개 키는 Sensitive로 가려진 상태이며 값의 유효성은 확인하지 않았습니다.
 URL/ref/callback은 Plain text, 공개 키는 Sensitive 등 로컬 config 해석에도 사용할 수 있는
 가시성을 선택합니다. Secret 가시성은 로컬 config 해석에서 읽지 못할 수 있습니다.
 실제 secret은 이 앱 변수에 넣지 않습니다. 준비 후 사용할 명령은
-`eas build --platform android --profile production`입니다. 현재는 연결/서명/빌드를 실행하지 않았습니다.
+`eas build --platform android --profile production`입니다. 로컬 프로젝트 연결 설정은 완료했으며,
+CLI 로그인과 `project:info`의 팀/프로젝트 ID 일치까지 확인했습니다. 서명·AAB 빌드는 아직 실행하지
+않았으며 웹 대시보드에도 빌드가 없습니다.
+
+EAS CLI 25.0.0은 초기 config 조회에서 `EXPO_NO_DOTENV=1`을 사용합니다. 이 저장소의
+엄격한 환경 검사 때문에 `.env`를 읽지 않은 `project:info`는 URL/공개 키 누락으로 실패했습니다.
+로컬 `@expo/env.load(process.cwd(), { silent: true })`로 먼저 환경을 읽은 프로세스에서
+CLI를 실행해 프로젝트 조회 성공을 확인했습니다. 환경 검사나 production 차단은 완화하지
+않았습니다. 빌드 시에도 초기 조회 환경과 production 환경 주입을 구분해서 확인해야 합니다.
 
 ## Android 서명 / 출시 전 확인
 

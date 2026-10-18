@@ -1,7 +1,13 @@
 {
   "expo": {
     "name": "쌓이다",
-    "slug": "ssaida-app",
+    "slug": "ssahida-app",
+    "owner": "ssahidas-team",
+    "extra": {
+      "eas": {
+        "projectId": "22da5823-40f1-488c-88a7-197639eaae9a"
+      }
+    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

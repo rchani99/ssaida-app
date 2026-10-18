@@ -26,6 +26,10 @@ export function ParentPinSettingsPanel({
     <View style={s.panel}>
       <Text style={s.title}>부모 PIN 변경</Text>
       <Text style={s.secondary}>현재 PIN을 확인한 뒤 숫자 4자리 새 PIN으로 변경해요.</Text>
+      <Text style={s.secondary}>
+        PIN을 잊었다면 아이 화면에서 부모님 메뉴를 열고 ‘PIN 번호 찾기/변경’을 선택해 주세요. 현재
+        PIN으로 부모님 모드에 들어오거나 PIN을 변경하면 진행 중이던 재설정 요청은 자동 취소돼요.
+      </Text>
       <LearningField
         label="현재 PIN"
         value={currentPin}

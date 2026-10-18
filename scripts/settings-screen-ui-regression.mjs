@@ -163,8 +163,17 @@ for (const copy of [
   '60분',
 ])
   assert.ok(text(tree).includes(copy), copy);
-for (const copy of ['계정 / 보안', '부모 PIN 변경', '현재 PIN 확인 후 변경', '사용 중'])
+for (const copy of [
+  '계정 / 보안',
+  '부모 PIN 변경',
+  '현재 PIN을 알면 기다리지 않고 변경',
+  '사용 중',
+])
   assert.ok(text(tree).includes(copy), copy);
+// PIN recovery lives only behind the child-screen PIN prompt (‘PIN 번호 찾기/변경’), where a
+// parent who forgot the PIN actually is. Settings is already behind the PIN.
+assert.ok(!text(tree).includes('부모 PIN 재설정'), 'settings must not offer a second reset entry');
+assert.ok(!text(tree).includes('72시간 후 재설정'));
 for (const copy of ['아이', '아이 정보 관리', '민준', '앱 정보', '서비스 정보'])
   assert.ok(text(tree).includes(copy), copy);
 assert.equal(
@@ -209,10 +218,10 @@ for (const [label, kind] of [['계정 삭제', 'deletion']]) {
   assert.equal(signOutCalls, 0);
 }
 
-press('부모 PIN 재설정');
+press('계정 삭제');
 assert.equal(
   nodes(render()).find((node) => node.type === 'SensitivePanel')?.props.kind,
-  'recovery',
+  'deletion',
 );
 nodes(render())
   .find((node) => node.type === 'SensitivePanel')
@@ -226,14 +235,12 @@ nodes(render())
   .props.onBusyChange(false);
 render();
 hardwareBackHandler();
-assert.ok(text(render()).includes('72시간 후 재설정'));
+assert.ok(!nodes(render()).some((node) => node.type === 'SensitivePanel'));
+assert.ok(text(render()).includes('계정 삭제'));
 
 // Render the real informational panels: unavailable services must not expose executable actions.
 sensitiveEnabled = true;
-for (const [label, kind] of [
-  ['계정 삭제', 'deletion'],
-  ['부모 PIN 재설정', 'recovery'],
-]) {
+for (const [label, kind] of [['계정 삭제', 'deletion']]) {
   press(label);
   assert.equal(nodes(render()).find((node) => node.type === 'SensitivePanel')?.props.kind, kind);
   hardwareBackHandler();

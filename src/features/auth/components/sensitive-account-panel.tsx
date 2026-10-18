@@ -33,9 +33,9 @@ const copy = {
   recovery: {
     title: '부모 PIN 재설정',
     intro:
-      '현재 PIN을 몰라도 재설정할 수 있어요. 요청하면 72시간 뒤에 새 PIN을 정할 수 있어요. 기다리는 동안 현재 PIN으로 부모님 모드에 한 번이라도 들어가면 요청이 자동으로 취소돼요.',
+      '현재 PIN을 몰라도 재설정할 수 있어요. 요청하면 72시간 뒤에 새 PIN을 정할 수 있어요. 기다리는 동안 현재 PIN으로 부모님 모드에 들어가거나 PIN을 변경하면 요청이 자동으로 취소돼요.',
     request: 'PIN 재설정 요청',
-    waiting: '뒤에 새 PIN을 정할 수 있어요.',
+    waiting: '뒤에 새 PIN을 정할 수 있어요. 그때 이 화면을 다시 열어 주세요.',
     ready: '이제 새 PIN을 정할 수 있어요.',
     confirm: 'PIN 재설정',
     cancel: '재설정 요청 취소',
@@ -57,6 +57,7 @@ export function SensitiveAccountPanel({
   const [state, setState] = useState<SensitiveUiState>({ phase: 'intro', message: '' });
   const [loaded, setLoaded] = useState(false);
   const [readError, setReadError] = useState(false);
+  const [reading, setReading] = useState(false);
   const [pin, setPin] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [deletionConfirmed, setDeletionConfirmed] = useState(false);
@@ -76,6 +77,7 @@ export function SensitiveAccountPanel({
   const readVersion = useRef(0);
   const refresh = useCallback(async () => {
     const version = ++readVersion.current;
+    setReading(true);
     try {
       const pending = await fetchPendingSensitiveActions();
       if (!alive.current || version !== readVersion.current) return;
@@ -89,7 +91,10 @@ export function SensitiveAccountPanel({
     } catch {
       if (alive.current && version === readVersion.current) setReadError(true);
     } finally {
-      if (alive.current) setLoaded(true);
+      if (alive.current && version === readVersion.current) {
+        setLoaded(true);
+        setReading(false);
+      }
     }
   }, [flow, purpose]);
   useEffect(() => {
@@ -131,7 +136,11 @@ export function SensitiveAccountPanel({
         <Text accessibilityRole="header" style={s.title}>
           {text.title}
         </Text>
-        {(state.phase === 'intro' || state.phase === 'error') && (
+        {!loaded && <Text style={s.secondary}>기존 요청이 있는지 확인하고 있어요…</Text>}
+        {loaded && !readError && state.phase === 'intro' && (
+          <Text style={s.text}>현재 진행 중인 요청이 없어요.</Text>
+        )}
+        {loaded && !readError && state.phase === 'intro' && (
           <>
             <Text style={s.secondary}>{text.intro}</Text>
             {kind === 'deletion' && (
@@ -168,22 +177,26 @@ export function SensitiveAccountPanel({
                   : '새 PIN을 설정하고 있어요…'}
           </Text>
         )}
-        {state.availableAt && (state.phase === 'waiting' || state.phase === 'ready') && (
-          <Text style={s.secondary}>
-            {`처리 가능: ${new Date(state.availableAt).toLocaleString('ko-KR')}\n유효 기한: ${new Date(state.expiresAt!).toLocaleString('ko-KR')}`}
-          </Text>
-        )}
-        {state.phase === 'waiting' && (
+        {!readError &&
+          state.availableAt &&
+          (state.phase === 'waiting' || state.phase === 'ready') && (
+            <Text style={s.secondary}>
+              {`처리 가능: ${new Date(state.availableAt).toLocaleString('ko-KR')}\n유효 기한: ${new Date(state.expiresAt!).toLocaleString('ko-KR')}`}
+            </Text>
+          )}
+        {!readError && state.phase === 'waiting' && (
           <>
+            <Text style={s.text}>요청이 접수됐어요.</Text>
             <Text style={s.warning}>{remaining ? `${remaining} ${text.waiting}` : text.ready}</Text>
             <Text style={s.secondary}>
               {kind === 'recovery'
-                ? '현재 PIN으로 부모님 모드에 들어가면 이 요청은 취소돼요.'
+                ? '현재 PIN으로 부모님 모드에 들어가거나 PIN을 변경하면 이 요청은 취소돼요.'
                 : '기다리는 동안 데이터는 그대로 유지돼요.'}
             </Text>
           </>
         )}
-        {state.phase === 'ready' &&
+        {!readError &&
+          state.phase === 'ready' &&
           (kind === 'deletion' ? (
             <>
               <Text style={s.warning}>{text.ready}</Text>
@@ -226,7 +239,7 @@ export function SensitiveAccountPanel({
               />
             </>
           ))}
-        {(state.phase === 'waiting' || state.phase === 'ready') && (
+        {!readError && (state.phase === 'waiting' || state.phase === 'ready') && (
           <LearningButton label={text.cancel} disabled={busy} onPress={() => void flow.cancel()} />
         )}
         {!!state.message && (
@@ -238,10 +251,15 @@ export function SensitiveAccountPanel({
           <>
             {readError && (
               <Text accessibilityRole="alert" style={s.warning}>
-                대기 상태를 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요.
+                요청 상태를 확인할 수 없어요. 요청의 접수·취소 여부와 처리 가능 시간을 아직 확인하지
+                못했어요. 아래 버튼으로 다시 확인해 주세요.
               </Text>
             )}
-            <LearningButton label="대기 상태 다시 확인" onPress={() => void refresh()} />
+            <LearningButton
+              label={reading ? '요청 상태 확인 중…' : '요청 상태 다시 확인'}
+              disabled={reading}
+              onPress={() => void refresh()}
+            />
           </>
         )}
         {!busy && (

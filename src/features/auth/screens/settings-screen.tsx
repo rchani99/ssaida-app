@@ -36,16 +36,7 @@ import { NotificationSettingsPanel } from '@/features/notifications/notification
 
 import type { LucideIcon } from 'lucide-react-native';
 
-type Detail =
-  | 'rest'
-  | 'notifications'
-  | 'target'
-  | 'pin'
-  | 'child'
-  | 'service'
-  | 'deletion'
-  | 'recovery'
-  | null;
+type Detail = 'rest' | 'notifications' | 'target' | 'pin' | 'child' | 'service' | 'deletion' | null;
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 
 export function SettingsScreen() {
@@ -115,13 +106,6 @@ export function SettingsScreen() {
           onBusyChange={setDetailBusy}
         />
       ),
-      recovery: (
-        <SensitiveAccountPanel
-          kind="recovery"
-          onClose={() => setDetail(null)}
-          onBusyChange={setDetailBusy}
-        />
-      ),
     } satisfies Record<Exclude<Detail, null>, React.ReactNode>;
     return (
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -180,16 +164,9 @@ export function SettingsScreen() {
         <SettingsRow
           icon={ShieldCheck}
           label="부모 PIN 변경"
-          description="현재 PIN 확인 후 변경"
+          description="현재 PIN을 알면 기다리지 않고 변경"
           value="사용 중"
           onPress={() => setDetail('pin')}
-        />
-        <SettingsRow
-          icon={ShieldCheck}
-          label="부모 PIN 재설정"
-          description="PIN을 잊었을 때"
-          value="72시간 후 재설정"
-          onPress={() => setDetail('recovery')}
         />
         <SettingsRow
           icon={UserRound}

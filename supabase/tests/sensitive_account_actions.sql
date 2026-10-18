@@ -80,6 +80,37 @@ begin
   end if;
   if public.consume_sensitive_action(a,request.id,'reset_parent_pin') then raise exception 'Cancelled consumed'; end if;
 
+  -- Changing the PIN with the current PIN proves presence too, so it must also clear a waiting
+  -- reset. A wrong current PIN must not. Covers both the 'same' and 'changed' outcomes.
+  update public.sensitive_action_challenges set created_at=created_at-interval '1 minute' where user_id=a;
+  request := public.request_sensitive_action(a,'reset_parent_pin');
+  perform pg_catalog.set_config('request.jwt.claim.sub', a::text, true);
+  if public.change_parent_pin('9999','4321') <> 'invalid' then raise exception 'Wrong current PIN accepted'; end if;
+  if not exists (select 1 from public.sensitive_action_challenges where id=request.id and status='pending') then
+    raise exception 'Wrong current PIN cancelled the reset';
+  end if;
+  if public.change_parent_pin('1234','1234') <> 'same' then raise exception 'Same PIN not reported'; end if;
+  if exists (select 1 from public.sensitive_action_challenges where id=request.id and status='pending') then
+    raise exception 'Same-PIN change did not cancel the waiting reset';
+  end if;
+  update public.sensitive_action_challenges set created_at=created_at-interval '1 minute' where user_id=a;
+  request := public.request_sensitive_action(a,'reset_parent_pin');
+  if public.change_parent_pin('1234','4321') <> 'changed' then raise exception 'PIN change failed'; end if;
+  if exists (select 1 from public.sensitive_action_challenges where id=request.id and status='pending') then
+    raise exception 'PIN change did not cancel the waiting reset';
+  end if;
+  if public.consume_sensitive_action(a,request.id,'reset_parent_pin') then raise exception 'Cancelled consumed'; end if;
+  -- Another account's PIN change must not touch this account's request.
+  update public.sensitive_action_challenges set created_at=created_at-interval '1 minute' where user_id=a;
+  request := public.request_sensitive_action(a,'reset_parent_pin');
+  perform pg_catalog.set_config('request.jwt.claim.sub', b::text, true);
+  if public.change_parent_pin('1234','1234') <> 'same' then raise exception 'Other account change failed'; end if;
+  if not exists (select 1 from public.sensitive_action_challenges where id=request.id and status='pending') then
+    raise exception 'Foreign PIN change cancelled the reset';
+  end if;
+  perform pg_catalog.set_config('request.jwt.claim.sub', a::text, true);
+  if public.change_parent_pin('4321','1234') <> 'changed' then raise exception 'PIN restore failed'; end if;
+
   -- Fixture only: shifting the stored timestamps stands in for elapsed wall-clock time.
   update public.sensitive_action_challenges set created_at=created_at-interval '4 days' where user_id=a;
   request := public.request_sensitive_action(a,'reset_parent_pin');

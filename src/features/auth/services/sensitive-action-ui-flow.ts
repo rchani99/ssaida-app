@@ -84,7 +84,7 @@ export function createSensitiveActionUiFlow(deps: {
             'error',
             deps.purpose === 'delete_account'
               ? '요청 결과를 확인하지 못했어요. 이미 접수됐을 수 있으니 대기 상태를 다시 확인해 주세요.'
-              : '요청을 접수하지 못했어요. 잠시 후 다시 시도해 주세요.',
+              : '요청 결과를 확인하지 못했어요. 이미 접수됐을 수 있으니 요청 상태를 다시 확인해 주세요.',
           );
       }
     },

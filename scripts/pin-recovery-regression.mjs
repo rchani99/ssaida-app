@@ -421,10 +421,10 @@ await panel.flush({
     closed = true;
   },
 });
-assert.equal(button('PIN 재설정 요청').disabled, true);
-assert.ok(button('대기 상태 다시 확인'));
+assert.equal(button('PIN 재설정 요청'), undefined, 'unknown status must not offer a new request');
+assert.ok(button('요청 상태 다시 확인'));
 readFails = false;
-button('대기 상태 다시 확인').onPress();
+button('요청 상태 다시 확인').onPress();
 await panel.flush();
 await banner.flush({});
 assert.equal(banner.tree, null);
@@ -433,6 +433,16 @@ await panel.flush();
 await banner.flush();
 assert.ok(banner.tree, 'request becomes visible without foregrounding the app');
 assert.ok(button('재설정 요청 취소'));
+readFails = true;
+panel.tick();
+await panel.flush();
+assert.equal(button('재설정 요청 취소'), undefined, 'failed refresh hides stale request actions');
+assert.equal(button('PIN 재설정 요청'), undefined);
+assert.ok(button('요청 상태 다시 확인'));
+readFails = false;
+button('요청 상태 다시 확인').onPress();
+await panel.flush();
+assert.ok(button('재설정 요청 취소'), 'retry restores the confirmed pending request');
 clock += 72 * hour;
 panel.tick();
 await panel.flush();
@@ -572,3 +582,51 @@ console.log(
 console.log(
   'PASS PIN recovery: production gate, PIN-only server rollout, wait/restart/expiry/cancellation/replay/account isolation, real panel timer/error/busy/return and immediate banner refresh',
 );
+
+// Changing the PIN with the current PIN cancels a waiting reset on the server
+// (change_parent_pin → cancel_pending_sensitive_action), so the banner must reload at once.
+{
+  let rpcResult = 'changed';
+  let rpcError = null;
+  let notified = 0;
+  const { changeParentPin } = load('src/features/auth/services/change-parent-pin.ts', {
+    '@/lib/supabase/client': {
+      getSupabaseClient: () => ({
+        rpc: async (name, args) => {
+          assert.equal(name, 'change_parent_pin');
+          assert.deepEqual(Object.keys(args).sort(), ['current_pin', 'new_pin']);
+          return { data: rpcResult, error: rpcError };
+        },
+      }),
+    },
+    './sensitive-action-events': { notifySensitiveActionsChanged: () => notified++ },
+  });
+  assert.equal(await changeParentPin('1234', '5678'), 'changed');
+  assert.equal(notified, 1, 'changed PIN refreshes pending reset state');
+  rpcResult = 'same';
+  assert.equal(await changeParentPin('1234', '1234'), 'same');
+  assert.equal(notified, 2, 'confirmed current PIN refreshes even when unchanged');
+  for (const outcome of ['invalid', 'locked']) {
+    rpcResult = outcome;
+    assert.equal(await changeParentPin('0000', '5678'), outcome);
+  }
+  assert.equal(notified, 2, 'wrong or locked PIN must not signal a cancellation');
+  rpcError = { message: 'network' };
+  await assert.rejects(changeParentPin('1234', '5678'));
+  assert.equal(notified, 2);
+  const migration = readFileSync(
+    'supabase/migrations/202610140002_change_pin_cancels_reset.sql',
+    'utf8',
+  );
+  const cancelAt = migration.indexOf(
+    "cancel_pending_sensitive_action(current_auth_user_id, 'reset_parent_pin')",
+  );
+  assert.ok(cancelAt > 0, 'change_parent_pin cancels the waiting reset');
+  assert.ok(
+    cancelAt > migration.indexOf("return 'invalid'"),
+    'cancellation happens only after the current PIN is confirmed',
+  );
+  console.log(
+    'PASS PIN change: confirmed current PIN cancels a waiting reset and refreshes the banner',
+  );
+}

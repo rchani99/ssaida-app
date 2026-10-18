@@ -61,14 +61,44 @@ URL/ref/callback은 Plain text, 공개 키는 Sensitive 등 로컬 config 해석
 가시성을 선택합니다. Secret 가시성은 로컬 config 해석에서 읽지 못할 수 있습니다.
 실제 secret은 이 앱 변수에 넣지 않습니다. 준비 후 사용할 명령은
 `eas build --platform android --profile production`입니다. 로컬 프로젝트 연결 설정은 완료했으며,
-CLI 로그인과 `project:info`의 팀/프로젝트 ID 일치까지 확인했습니다. 서명·AAB 빌드는 아직 실행하지
-않았으며 웹 대시보드에도 빌드가 없습니다.
+CLI 로그인과 `project:info`의 팀/프로젝트 ID 일치까지 확인했습니다.
+10월 16일 웹 화면만 보고 빌드가 없다고 기록한 판단은 정정합니다. 10월 18일 CLI 조회에서
+10월 13일 `com.ssaida.app.productiontest` 내부 배포 APK 이력을 확인했습니다.
+현재 Play용 패키지와는 별개입니다.
 
 EAS CLI 25.0.0은 초기 config 조회에서 `EXPO_NO_DOTENV=1`을 사용합니다. 이 저장소의
 엄격한 환경 검사 때문에 `.env`를 읽지 않은 `project:info`는 URL/공개 키 누락으로 실패했습니다.
 로컬 `@expo/env.load(process.cwd(), { silent: true })`로 먼저 환경을 읽은 프로세스에서
 CLI를 실행해 프로젝트 조회 성공을 확인했습니다. 환경 검사나 production 차단은 완화하지
-않았습니다. 빌드 시에도 초기 조회 환경과 production 환경 주입을 구분해서 확인해야 합니다.
+않았습니다. 10월 18일 실제 production 빌드에서는 초기 profile 해석에도 production 변수가
+필요해, `env:pull production --path outputs/android-release/.env.production --non-interactive`로
+등록된 설정을 Git 제외 폴더에 받고 해당 파일을 먼저 로드했습니다. `EXPO_PUBLIC_APP_ENV=production`,
+`EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN=false`도 명시했습니다. 개발용 `.env`는 변경하지 않았습니다.
+
+2026-10-18 사용자 요청으로 원격 서명 키를 생성하고 AAB 빌드를 접수했습니다.
+빌드 ID: `0a496d08-0fa5-41f7-9402-09598d0cbc4e`, 패키지 `com.ssaida.app`, 버전 `1.0.0`,
+원격 versionCode `2`. 최종 결과·산출물 검증은 완료 후 아래에 기록합니다.
+
+### 2026-10-18 첫 Play용 AAB 완료
+
+- EAS 상태 `FINISHED`, 완료 시각 2026-10-18 11:11:37 한국 시간.
+- [빌드 결과](https://expo.dev/accounts/ssahidas-team/projects/ssahida-app/builds/0a496d08-0fa5-41f7-9402-09598d0cbc4e).
+- 로컬 파일: `outputs/android-release/ssaida-1.0.0-2.aab`, 83,143,866바이트.
+- SHA-256: `d360c9a8f8fd5a755130ee5790d3abc49b0e6891befd212616b919733bc6a996`.
+- bundletool 1.18.3 validate 통과, ZIP CRC 오류 없음. 실제 manifest에서 `com.ssaida.app`,
+  `versionName=1.0.0`, `versionCode=2`, minSdk 24, targetSdk 36, debuggable false 확인.
+- 포함된 Expo 설정은 `appEnvironment=production` 및 예상 EAS projectId. JS 번들에서 운영
+  Supabase 프로젝트 참조 확인. 이는 설정 포함 확인이며 실제 기기 로그인·통신 성공 증거는 아님.
+- jarsigner의 `jar verified` 및 JarFile 전체 읽기를 통한 1,636개 payload 서명 확인, unsigned 0.
+  생성한 서명 인증서 SHA-256은 `B4:D9:DF:4B:3A:54:E5:70:3F:83:09:D9:60:22:19:9D:9D:32:26:D5:78:B4:26:06:E7:3F:86:A8:60:34:D5:90`.
+  jarsigner는 자체 서명·타임스탬프 부재·ZIP 내 manifest 순서에 따른 JarInputStream 경고도 냈으며,
+  실제 JarFile payload 검증은 통과했다. Play App Signing 연결은 아직 확인하지 않았다.
+- 로컬 typecheck 통과, 회귀 스크립트 45개 통과·0개 실패. DB 전용 9개 및 혼합 테스트 DB 부분은
+  기본 실행 정책에 따라 제외했으며 운영 DB 검증으로 간주하지 않는다.
+- 권한 검토 후속: manifest에 기존 READ/WRITE_EXTERNAL_STORAGE, SYSTEM_ALERT_WINDOW가 포함되고
+  allowBackup=true다. 공개 출시 전 필요성·세션 백업 정책을 검토한다. 이 빌드에서는 권한 정책을
+  변경하지 않았다. POST_NOTIFICATIONS 포함 확인. 실기기 OAuth·알림·핵심 흐름 검수는 남아 있다.
+- Play Console 업로드·내부 테스트 출시·정식 출시는 아직 실행하지 않았다.
 
 ## Android 서명 / 출시 전 확인
 

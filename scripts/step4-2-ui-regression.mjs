@@ -592,6 +592,7 @@ const manual = harness(
       useDailyPlan: () => ({ data: { id: 'plan', target_minutes_snapshot: 60 } }),
       useDailyTasks: () => ({ data: [] }),
       useUnresolvedManualTasks: () => ({ data: pastTasks }),
+      useStudyItems: () => ({ data: [] }),
       useAddManualDailyTask: () => ({
         ...mutation,
         mutate: (input, callbacks) => {
@@ -629,6 +630,7 @@ const chooseType = (label) =>
     .find((node) => node.props?.accessibilityLabel === label)
     .props.onPress();
 button(manualTree(), '+ 오늘 할 일 추가').onPress();
+button(manualTree(), '직접 입력').onPress();
 inputField('오늘 할 일 시작 쪽').onChangeText('12');
 inputField('오늘 할 일 마지막 쪽').onChangeText('19');
 chooseType('오늘 할 일 활동');
@@ -646,6 +648,7 @@ chooseType('오늘 할 일 과목 수학');
 button(manualTree(), '오늘 할 일 저장').onPress();
 assert.equal(savedManual.startPage, 11);
 button(manualTree(), '+ 오늘 할 일 추가').onPress();
+button(manualTree(), '직접 입력').onPress();
 assert.equal(inputField('오늘 할 일 이름').value, '');
 assert.equal(inputField('오늘 할 일 예상시간 (분)').value, '20');
 assert.equal(inputField('오늘 할 일 시작 쪽').value, '1');
@@ -661,6 +664,7 @@ button(manualTree(), '오늘 할 일 저장').onPress();
 assert.equal(savedManual.startPage, null);
 assert.equal(savedManual.endPage, null);
 button(manualTree(), '+ 오늘 할 일 추가').onPress();
+button(manualTree(), '직접 입력').onPress();
 assert.equal(inputField('오늘 할 일 시작 쪽').value, '1');
 button(manualTree(), '지난 공부 2개 정리하기').onPress();
 for (const [label, confirmLabel] of [

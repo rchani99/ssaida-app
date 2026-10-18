@@ -377,6 +377,7 @@ const manual = load('src/features/learning/components/manual-tasks-panel.tsx', {
     useDailyPlan: () => ({ data: { id: 'plan', target_minutes_snapshot: 60 } }),
     useDailyTasks: () => ({ data: [excluded, make('normal', { planned_minutes: 5 })] }),
     useUnresolvedManualTasks: () => ({ data: [] }),
+    useStudyItems: () => ({ data: [] }),
     useAddManualDailyTask: () => ({}),
     useRescheduleManualTask: () => ({}),
     useSkipManualTask: () => ({}),

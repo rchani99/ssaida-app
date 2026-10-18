@@ -17,11 +17,16 @@ import {
   useDailyTasks,
   useRescheduleManualTask,
   useSkipManualTask,
+  useStudyItems,
   useUnresolvedManualTasks,
 } from '@/features/learning/hooks/use-learning';
 import { useToday } from '@/shared/hooks/use-today';
 
-import type { DailyTaskWithPlan, ManualTaskInput } from '@/features/learning/types/learning.types';
+import type {
+  DailyTaskWithPlan,
+  ManualTaskInput,
+  StudyItem,
+} from '@/features/learning/types/learning.types';
 
 export function ManualTasksPanel({
   childId,
@@ -44,6 +49,9 @@ export function ManualTasksPanel({
   const submitting = useRef(false);
   const [expanded, setExpanded] = useState(false);
   const [form, setForm] = useState(false);
+  const [source, setSource] = useState<'registered' | 'new'>('registered');
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const studyItems = useStudyItems(form && mode !== 'unresolved' ? childId : undefined);
   const [itemType, setItemType] = useState<'WORKBOOK' | 'ACTIVITY'>('WORKBOOK');
   const [name, setName] = useState('');
   const [subject, setSubject] = useState<ManualTaskInput['subject']>(null);
@@ -58,6 +66,36 @@ export function ManualTasksPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [showExcess, setShowExcess] = useState(false);
   const busy = add.isPending || reschedule.isPending || skip.isPending;
+  const registeredItems = (studyItems.data ?? []).filter(
+    (item) => item.child_id === childId && item.status !== 'DELETED' && item.item_type === itemType,
+  );
+  const selectedItem = registeredItems.find((item) => item.id === selectedItemId);
+  const resetFields = () => {
+    setSelectedItemId(null);
+    setName('');
+    setSubject(null);
+    setMinutes('20');
+    setStart('1');
+    setEnd('5');
+    setError(null);
+  };
+  const selectItem = (item: StudyItem) => {
+    setSelectedItemId(item.id);
+    setName(item.name);
+    setSubject(item.subject as ManualTaskInput['subject']);
+    setMinutes(String(item.estimated_minutes));
+    const nextPage =
+      item.workbook_next_start_page_override ?? (item.workbook_last_completed_page ?? 0) + 1;
+    // Completed workbooks can be selected again for review, starting at page one.
+    const first = nextPage > (item.workbook_last_page ?? 1) ? 1 : nextPage;
+    setStart(String(first));
+    setEnd(
+      String(
+        Math.min(first + (item.workbook_pages_per_session ?? 5) - 1, item.workbook_last_page ?? 5),
+      ),
+    );
+    setError(null);
+  };
   const excess =
     (tasks.data ?? [])
       .filter((task) => !task.excluded_for_today && task.status !== 'SKIPPED')
@@ -66,6 +104,10 @@ export function ManualTasksPanel({
   const submit = () => {
     if (busy || submitting.current) return;
     setError(null);
+    if (source === 'registered' && (!selectedItem || studyItems.isError)) {
+      setError('등록한 공부를 선택해 주세요.');
+      return;
+    }
     if (!name.trim()) {
       setError('공부 이름을 입력해 주세요.');
       return;
@@ -100,6 +142,8 @@ export function ManualTasksPanel({
       {
         onSuccess: () => {
           setForm(false);
+          setSource('registered');
+          setSelectedItemId(null);
           setName('');
           setItemType('WORKBOOK');
           setSubject(null);
@@ -205,6 +249,26 @@ export function ManualTasksPanel({
           {form && (
             <View style={[s.card, reviewStyle && parentReviewStyles.card]}>
               <View style={s.row}>
+                {(['registered', 'new'] as const).map((value) => (
+                  <Pressable
+                    key={value}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: source === value, disabled: busy }}
+                    disabled={busy}
+                    onPress={() => {
+                      if (source === value) return;
+                      setSource(value);
+                      resetFields();
+                    }}
+                    style={[s.choice, source === value && s.selected]}
+                  >
+                    <Text style={s.text}>
+                      {value === 'registered' ? '등록한 공부에서 선택' : '직접 입력'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={s.row}>
                 {(['WORKBOOK', 'ACTIVITY'] as const).map((type) => (
                   <Pressable
                     accessibilityRole="radio"
@@ -215,6 +279,7 @@ export function ManualTasksPanel({
                     onPress={() => {
                       if (type === itemType) return;
                       setItemType(type);
+                      if (source === 'registered') resetFields();
                       setStart('1');
                       setEnd('5');
                       setError(null);
@@ -225,66 +290,125 @@ export function ManualTasksPanel({
                   </Pressable>
                 ))}
               </View>
-              <LearningField
-                label="오늘 할 일 이름"
-                value={name}
-                onChangeText={setName}
-                disabled={busy}
-              />
-              <Text style={reviewStyle ? parentReviewStyles.secondary : s.secondary}>
-                과목 (선택)
-              </Text>
-              <View style={s.row}>
-                {(
-                  [
-                    [null, '선택 안 함'],
-                    ['KOREAN', '국어'],
-                    ['MATH', '수학'],
-                    ['ENGLISH', '영어'],
-                    ['SCIENCE', '과학'],
-                    ['SOCIAL', '사회'],
-                    ['OTHER', '기타'],
-                  ] as const
-                ).map(([code, label]) => (
-                  <Pressable
-                    key={label}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`오늘 할 일 과목 ${label}`}
-                    accessibilityState={{ selected: subject === code }}
-                    disabled={busy}
-                    onPress={() => setSubject(code)}
-                    style={[s.choice, subject === code && s.selected]}
-                  >
-                    <Text style={s.text}>{label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <LearningField
-                label="오늘 할 일 예상시간 (분)"
-                value={minutes}
-                onChangeText={setMinutes}
-                numeric
-                disabled={busy}
-              />
-              {itemType === 'WORKBOOK' && (
+              {source === 'registered' && (
+                <View style={{ gap: 8 }}>
+                  <Text style={s.text}>
+                    등록한 {itemType === 'WORKBOOK' ? '문제집' : '활동'}을 선택해 주세요.
+                  </Text>
+                  {studyItems.isLoading ? (
+                    <ActivityIndicator accessibilityLabel="등록한 공부 불러오는 중" />
+                  ) : studyItems.isError ? (
+                    <>
+                      <Text style={s.error}>등록한 공부를 불러오지 못했어요.</Text>
+                      <LearningButton
+                        label="등록한 공부 다시 불러오기"
+                        onPress={() => void studyItems.refetch()}
+                      />
+                    </>
+                  ) : registeredItems.length ? (
+                    registeredItems.map((item) => (
+                      <Pressable
+                        key={item.id}
+                        accessibilityRole="radio"
+                        accessibilityLabel={`등록한 공부 ${item.name}`}
+                        accessibilityState={{
+                          selected: selectedItemId === item.id,
+                          disabled: busy,
+                        }}
+                        disabled={busy}
+                        onPress={() => selectItem(item)}
+                        style={[s.choice, selectedItemId === item.id && s.selected]}
+                      >
+                        <Text style={s.text}>{item.name}</Text>
+                        <Text style={s.secondary}>
+                          약 {item.estimated_minutes}분
+                          {item.item_type === 'WORKBOOK'
+                            ? ` · 한 번에 ${item.workbook_pages_per_session}쪽`
+                            : ''}
+                          {item.status === 'PAUSED' ? ' · 쉬는 중' : ''}
+                          {item.status === 'COMPLETED' ? ' · 완료 (복습)' : ''}
+                        </Text>
+                      </Pressable>
+                    ))
+                  ) : (
+                    <Text style={s.secondary}>
+                      등록한 {itemType === 'WORKBOOK' ? '문제집이' : '활동이'} 없어요. 직접 입력으로
+                      오늘 할 일을 추가할 수 있어요.
+                    </Text>
+                  )}
+                  {selectedItem && !studyItems.isError && (
+                    <Text style={s.secondary}>
+                      등록한 정보를 불러왔어요. 오늘 할 분량을 확인해 주세요. 오늘만 할 일로
+                      추가돼요.
+                      {itemType === 'WORKBOOK' && ' 등록한 문제집의 진도에는 반영되지 않아요.'}
+                    </Text>
+                  )}
+                </View>
+              )}
+              {(source === 'new' || (selectedItem && !studyItems.isError)) && (
                 <>
                   <LearningField
-                    label="오늘 할 일 시작 쪽"
-                    value={start}
-                    onChangeText={setStart}
-                    numeric
+                    label="오늘 할 일 이름"
+                    value={name}
+                    onChangeText={setName}
                     disabled={busy}
                   />
+                  <Text style={reviewStyle ? parentReviewStyles.secondary : s.secondary}>
+                    과목 (선택)
+                  </Text>
+                  <View style={s.row}>
+                    {(
+                      [
+                        [null, '선택 안 함'],
+                        ['KOREAN', '국어'],
+                        ['MATH', '수학'],
+                        ['ENGLISH', '영어'],
+                        ['SCIENCE', '과학'],
+                        ['SOCIAL', '사회'],
+                        ['OTHER', '기타'],
+                      ] as const
+                    ).map(([code, label]) => (
+                      <Pressable
+                        key={label}
+                        accessibilityRole="radio"
+                        accessibilityLabel={`오늘 할 일 과목 ${label}`}
+                        accessibilityState={{ selected: subject === code }}
+                        disabled={busy}
+                        onPress={() => setSubject(code)}
+                        style={[s.choice, subject === code && s.selected]}
+                      >
+                        <Text style={s.text}>{label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
                   <LearningField
-                    label="오늘 할 일 마지막 쪽"
-                    value={end}
-                    onChangeText={setEnd}
+                    label="오늘 할 일 예상시간 (분)"
+                    value={minutes}
+                    onChangeText={setMinutes}
                     numeric
                     disabled={busy}
                   />
+                  {itemType === 'WORKBOOK' && (
+                    <>
+                      <LearningField
+                        label="오늘 할 일 시작 쪽"
+                        value={start}
+                        onChangeText={setStart}
+                        numeric
+                        disabled={busy}
+                      />
+                      <LearningField
+                        label="오늘 할 일 마지막 쪽"
+                        value={end}
+                        onChangeText={setEnd}
+                        numeric
+                        disabled={busy}
+                      />
+                    </>
+                  )}
+                  <LearningButton label="오늘 할 일 저장" disabled={busy} onPress={submit} />
                 </>
               )}
-              <LearningButton label="오늘 할 일 저장" disabled={busy} onPress={submit} />
             </View>
           )}
           {showExcess && excess > 0 && (

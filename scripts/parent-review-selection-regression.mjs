@@ -92,6 +92,7 @@ const renderManual = harness('manual-tasks-panel.tsx', {
   '@/features/learning/hooks/use-learning': {
     useDailyPlan: () => ({ data: null }),
     useDailyTasks: () => ({ data: [] }),
+    useStudyItems: () => ({ data: [] }),
     useUnresolvedManualTasks: () => ({ data: [task, { ...task, id: 'B' }] }),
     useAddManualDailyTask: () => mutation('add'),
     useRescheduleManualTask: () => mutation('move'),

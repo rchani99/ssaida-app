@@ -44,6 +44,7 @@ const iconNames = [
 export function uiMocks(overrides) {
   if (overrides['react-native']) overrides['react-native'].StyleSheet ??= { create: (v) => v };
   return {
+    '@/features/learning/components/today-points-note': { TodayPointsNote: 'TodayPointsNote' },
     '@/features/learning/components/today-collection-card': {
       TodayCollectionCard: 'TodayCollectionCard',
     },

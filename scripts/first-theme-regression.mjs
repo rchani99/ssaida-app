@@ -182,6 +182,7 @@ const { ChildTodayScreen } = load('src/features/learning/screens/child-today-scr
   },
   '@/features/learning/components/rest-day-card': { RestDayCard: 'Rest' },
   '@/features/learning/components/today-collection-card': { TodayCollectionCard: 'CollectionCard' },
+  '@/features/learning/components/today-points-note': { TodayPointsNote: 'TodayPointsNote' },
   '@/features/learning/utils/exception-tasks': { prioritizeTodayTasks: (v) => v },
   '@/features/learning/utils/visible-tasks': {
     groupTodayTasks: (today) => ({ today, continuing: [], todayCount: 1, remaining: 1 }),

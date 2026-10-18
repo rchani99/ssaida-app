@@ -228,6 +228,7 @@ export type Database = {
       };
       daily_tasks: {
         Row: {
+          awarded_growth_points: number | null;
           actual_end_page: number | null;
           child_completed_at: string | null;
           created_at: string;
@@ -258,6 +259,7 @@ export type Database = {
         };
         Insert: {
           actual_end_page?: number | null;
+          awarded_growth_points?: number | null;
           child_completed_at?: string | null;
           created_at?: string;
           daily_plan_id: string;
@@ -287,6 +289,7 @@ export type Database = {
         };
         Update: {
           actual_end_page?: number | null;
+          awarded_growth_points?: number | null;
           child_completed_at?: string | null;
           created_at?: string;
           daily_plan_id?: string;

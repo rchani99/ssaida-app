@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { childCollectionTokens as reward, colors, sizing, spacing } from '@/design-system/tokens';
@@ -27,8 +27,10 @@ const THEMES = [
 export function CollectionPanel({
   child,
   albumState,
+  dailyPointsNote,
 }: {
   child: Child;
+  dailyPointsNote?: ReactNode;
   albumState?: 'empty' | 'complete' | 'incomplete';
 }) {
   const queryClient = useQueryClient();
@@ -50,6 +52,7 @@ export function CollectionPanel({
     return (
       <View style={styles.panel}>
         <FirstThemePicker pendingPoints={child.pending_growth_points} />
+        {dailyPointsNote}
       </View>
     );
   }
@@ -78,6 +81,7 @@ export function CollectionPanel({
         <CollectionArtwork code={revealed.code} hero />
         <Text style={styles.title}>새 친구를 만났어요!</Text>
         <Text style={styles.revealed}>{revealed.name}</Text>
+        {dailyPointsNote}
         <Pressable
           accessibilityRole="button"
           style={styles.primaryButton}
@@ -109,6 +113,7 @@ export function CollectionPanel({
             ? '도감에서 모은 친구들을 만나보세요.'
             : '아래 수집 현황을 확인해 주세요.'}
         </Text>
+        {dailyPointsNote}
         {albumState === 'incomplete' && (
           <Pressable
             accessibilityRole="button"
@@ -148,11 +153,7 @@ export function CollectionPanel({
         ready={isReady}
         artworkCode={collectible.collectible_catalog?.code}
       />
-      {!isReady && (
-        <>
-          <Text style={styles.description}>공부를 마치고 부모님께 확인받아 보세요.</Text>
-        </>
-      )}
+      {dailyPointsNote}
       {isReady && (
         <Pressable
           accessibilityRole="button"

@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { childCollectionTokens as reward, colors, spacing } from '@/design-system/tokens';
 import { CollectionPanel } from '@/features/learning/components/collection-panel';
 import { ThemeAlbumBrowser } from '@/features/learning/components/theme-album-browser';
+import { TodayPointsNote } from '@/features/learning/components/today-points-note';
 import { useCollectionAlbum } from '@/features/learning/hooks/use-collection-album';
 import { useCurrentChild } from '@/features/learning/hooks/use-learning';
 import { ScreenMessage } from '@/shared/components/screen-message';
@@ -38,6 +39,7 @@ export function GardenScreen() {
       )}
       <CollectionPanel
         child={childQuery.data}
+        dailyPointsNote={<TodayPointsNote childId={childQuery.data.id} />}
         key={`panel-${childQuery.data.selected_collection_theme_code ?? 'none'}`}
         albumState={
           albumQuery.data

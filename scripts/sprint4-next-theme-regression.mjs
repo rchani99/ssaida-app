@@ -43,6 +43,7 @@ const { GardenScreen } = load('src/features/learning/screens/garden-screen.tsx',
   '@/features/learning/components/collection-panel': { CollectionPanel: 'Panel' },
   '@/features/learning/components/collection-album': { CollectionAlbum: 'Album' },
   '@/features/learning/components/theme-album-browser': { ThemeAlbumBrowser: 'Browser' },
+  '@/features/learning/components/today-points-note': { TodayPointsNote: 'Points' },
   '@/features/learning/hooks/use-collection-album': {
     useCollectionAlbum: () => ({ data: { total: 3, isComplete: complete }, isError: error }),
   },

@@ -35,7 +35,7 @@ export function createSensitiveActionUiFlow(deps: {
     deps.changed({ phase: next, message, availableAt, expiresAt });
   };
   const settle = (message = '') => {
-    if (expiresAt && now() >= Date.parse(expiresAt)) {
+    if (deps.purpose === 'reset_parent_pin' && expiresAt && now() >= Date.parse(expiresAt)) {
       availableAt = undefined;
       expiresAt = undefined;
       actions = undefined;

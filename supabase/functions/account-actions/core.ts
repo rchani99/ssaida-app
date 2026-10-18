@@ -176,7 +176,7 @@ export function createHandler(deps: Dependencies) {
         throw new ActionError(400, 'INVALID_REQUEST');
       if (!(await deps.consumeDelete(actor, body.id, body.operationId)))
         throw new ActionError(403, 'WAIT_REQUIRED');
-      // Claim first, fail closed on admin failure. Retrying needs a NEW waiting period.
+      // Claim first. An ambiguous Admin failure is retried by the scheduler after backoff.
       await deps.deleteUser(actor);
       return response({ status: 'deleted' });
     } catch (error) {

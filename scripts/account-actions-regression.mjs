@@ -63,14 +63,14 @@ const operation = {
   receipt: 'a'.repeat(64),
   expiresAt: new Date(now + 7 * DAY).toISOString(),
 };
-// Mirrors the RPC gate: pending, owned, right purpose, waiting period elapsed, not expired.
+// Deletion stays due; PIN recovery additionally has a finite execution window.
 const usable = (who, id, purpose) =>
   who.id === request.user_id &&
   id === request.id &&
   request.purpose === purpose &&
   request.status === 'pending' &&
   Date.parse(request.available_at) <= now &&
-  Date.parse(request.expires_at) > now;
+  (purpose === 'delete_account' || Date.parse(request.expires_at) > now);
 const handler = createHandler({
   watchDelete: async () => operation,
   enabled: () => true,
@@ -244,7 +244,8 @@ await assert.rejects(pinFlow.execute('12'), /INVALID_PIN/);
 await pinFlow.execute('5678');
 assert.equal(cleanup, 1);
 await assert.rejects(pinFlow.execute('5678'), /WAIT_REQUIRED/);
-// An expired action window cannot be executed even though the wait is over.
+// PIN recovery expires; a delayed deletion remains executable after the legacy window.
+let lateCleanup = 0;
 const stale = createSensitiveActionFlow({
   now: () => now,
   currentUserId: async () => actor.id,
@@ -258,11 +259,14 @@ const stale = createSensitiveActionFlow({
         }
       : { status: 'deleted' },
   cleanupDeletedAccount: async () => {
-    throw new Error('Unexpected cleanup');
+    lateCleanup++;
   },
 });
+await stale.begin('reset_parent_pin');
+await assert.rejects(stale.execute('1234'), /REQUEST_EXPIRED/);
 await stale.begin('delete_account');
-await assert.rejects(stale.execute(), /REQUEST_EXPIRED/);
+await stale.execute();
+assert.equal(lateCleanup, 1);
 
 // A cancelled flow must never execute when an in-flight response arrives.
 let finishCancel;

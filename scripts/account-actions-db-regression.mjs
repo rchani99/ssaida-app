@@ -171,6 +171,7 @@ try {
   sql(readFileSync('supabase/tests/sensitive_action_cleanup.sql', 'utf8'));
   sql(readFileSync('supabase/tests/account_deletion_receipts.sql', 'utf8'));
   sql(readFileSync('supabase/tests/account_deletion_mvp.sql', 'utf8'));
+  sql(readFileSync('supabase/tests/durable_account_deletion.sql', 'utf8'));
   console.log(
     'PASS isolated DB: full migration replay; server-only privileges, PIN bcrypt/lock reset, ownership, expiry, cancel, purpose, replay and FK cascade',
   );

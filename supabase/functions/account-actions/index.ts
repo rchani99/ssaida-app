@@ -57,14 +57,14 @@ if ((!enabled && !pinRecoveryEnabled) || !url || !key) {
       })) as Challenge;
     },
     async resume(actor, purpose) {
-      const { data, error } = await admin
+      let query = admin
         .from('sensitive_action_challenges')
         .select('id,user_id,purpose,status,created_at,available_at,expires_at')
         .eq('user_id', actor.id)
         .eq('purpose', purpose)
-        .in('status', purpose === 'delete_account' ? ['pending', 'consumed'] : ['pending'])
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle();
+        .in('status', purpose === 'delete_account' ? ['pending', 'consumed'] : ['pending']);
+      if (purpose !== 'delete_account') query = query.gt('expires_at', new Date().toISOString());
+      const { data, error } = await query.maybeSingle();
       if (error) throw new ActionError(409, 'ACTION_UNAVAILABLE');
       return data as Challenge | null;
     },

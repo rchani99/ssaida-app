@@ -148,7 +148,9 @@ begin
         available_at=pg_catalog.clock_timestamp()-interval '2 seconds',
         expires_at=pg_catalog.clock_timestamp()-interval '1 second'
     where id=request.id;
-  if public.consume_sensitive_action(a,request.id,'delete_account') then raise exception 'Expired consumed'; end if;
+  if not public.consume_sensitive_action(a,request.id,'delete_account') then raise exception 'Delayed deletion lost'; end if;
+  -- End this fixture before testing another independent request.
+  update public.sensitive_action_challenges set status='cancelled' where id=request.id;
 
   -- A deletion operation may only be prepared once the waiting period has elapsed.
   update public.sensitive_action_challenges set created_at=created_at-interval '1 minute' where user_id=a;
@@ -200,14 +202,14 @@ begin
   request := public.request_sensitive_action(a,'delete_account');
   if public.claim_due_account_deletion() is not null then raise exception 'Waiting request claimed'; end if;
   if public.count_due_account_deletions() <> 0 then raise exception 'Waiting request counted'; end if;
-  -- Past its window the job must lapse the request rather than delete late.
+  -- A scheduler outage never silently lapses a deletion request.
   update public.sensitive_action_challenges
     set created_at=pg_catalog.clock_timestamp()-interval '22 days',
         available_at=pg_catalog.clock_timestamp()-interval '8 days',
         expires_at=pg_catalog.clock_timestamp()-interval '1 second'
     where id=request.id;
-  if public.claim_due_account_deletion() is not null then raise exception 'Expired request claimed'; end if;
-  if public.count_due_account_deletions() <> 0 then raise exception 'Expired request counted'; end if;
+  if public.count_due_account_deletions() <> 1 then raise exception 'Delayed request not counted'; end if;
+  if public.claim_due_account_deletion() is distinct from a then raise exception 'Delayed request not claimed'; end if;
 
   -- Exercise the real preexisting FK graph, including plans/tasks and collectible growth events.
   insert into public.study_items(child_id,item_type,name,estimated_minutes,study_weekdays)

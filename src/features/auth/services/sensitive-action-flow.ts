@@ -82,7 +82,8 @@ export function createSensitiveActionFlow(deps: SensitiveActionDependencies) {
         throw new Error('INVALID_PIN');
       const current = now();
       if (current < Date.parse(request.availableAt)) throw new Error('WAIT_REQUIRED');
-      if (current >= Date.parse(request.expiresAt)) throw new Error('REQUEST_EXPIRED');
+      if (purpose === 'reset_parent_pin' && current >= Date.parse(request.expiresAt))
+        throw new Error('REQUEST_EXPIRED');
       busy = true;
       const target = request;
       try {

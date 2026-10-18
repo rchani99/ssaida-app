@@ -566,6 +566,18 @@ await deletionPanel.flush();
 assert.equal(deleteBegins, 1);
 assert.ok(deleteButton('삭제 요청 취소'));
 assert.equal(deleteButton('계정 영구 삭제'), undefined);
+// An outage beyond the old seven-day window must not hide cancellation or restart a wait.
+deletePending = {
+  ...deletePending,
+  availableAt: new Date(clock - 10 * 24 * hour).toISOString(),
+  expiresAt: new Date(clock - 3 * 24 * hour).toISOString(),
+};
+deletionPanel.tick();
+await deletionPanel.flush();
+assert.ok(deleteButton('삭제 요청 취소'));
+assert.ok(deleteButton('계정 영구 삭제'));
+assert.equal(deleteButton('계정 삭제 요청'), undefined);
+assert.equal(deleteBegins, 1);
 deletePending = { ...deletePending, processing: true };
 deletionPanel.tick();
 await deletionPanel.flush();

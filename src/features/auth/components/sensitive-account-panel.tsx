@@ -22,7 +22,7 @@ const copy = {
   deletion: {
     title: '계정 삭제',
     intro:
-      '계정을 삭제하면 아이 정보, 공부 계획과 기록, 컬렉션과 성장 기록, 부모 PIN이 함께 삭제돼요. 요청한 뒤 14일이 지나면 앱을 다시 열지 않아도 자동으로 삭제돼요. 삭제 처리가 시작되기 전까지 취소할 수 있고, 삭제 후에는 복구할 수 없어요.',
+      '계정을 삭제하면 로그인 계정, 아이 정보, 공부 계획과 기록, 컬렉션과 성장 기록, 부모 PIN이 함께 삭제돼요. 아이의 실수로 계정이 지워지지 않도록 14일 동안 기다린 뒤 자동 삭제를 시작해요. 앱을 다시 열 필요는 없어요. 처리 지연 시에도 요청은 유지돼요. 삭제 처리가 시작되기 전까지 취소할 수 있고, 삭제 후에는 복구할 수 없어요. Google 계정 자체는 삭제되지 않아요.',
     request: '계정 삭제 요청',
     waiting: '뒤부터 자동 삭제가 진행돼요. 그 전까지는 아무것도 삭제되지 않아요.',
     ready:
@@ -181,7 +181,9 @@ export function SensitiveAccountPanel({
           state.availableAt &&
           (state.phase === 'waiting' || state.phase === 'ready') && (
             <Text style={s.secondary}>
-              {`처리 가능: ${new Date(state.availableAt).toLocaleString('ko-KR')}\n유효 기한: ${new Date(state.expiresAt!).toLocaleString('ko-KR')}`}
+              {kind === 'deletion'
+                ? `자동 삭제 시작 예정: ${new Date(state.availableAt).toLocaleString('ko-KR')}\n예약 작업은 매시간 실행돼요. 처리 지연 시에도 다시 요청할 필요는 없어요.`
+                : `처리 가능: ${new Date(state.availableAt).toLocaleString('ko-KR')}\n유효 기한: ${new Date(state.expiresAt!).toLocaleString('ko-KR')}`}
             </Text>
           )}
         {!readError && state.phase === 'waiting' && (

@@ -42,7 +42,7 @@ begin
     public.get_account_deletion_status((op->>'operationId')::uuid,hash)<>'deleted' then raise exception 'Repeat query'; end if;
   update public.account_deletion_operations set execute_before=pg_catalog.clock_timestamp()-interval '1 second'
     where id=(other_op->>'operationId')::uuid;
-  if public.get_account_deletion_status((other_op->>'operationId')::uuid,pg_catalog.repeat('b',64))<>'failed' or
+  if public.get_account_deletion_status((other_op->>'operationId')::uuid,pg_catalog.repeat('b',64))<>'pending' or
     public.start_account_deletion(other_id,other_proof,(other_op->>'operationId')::uuid) then raise exception 'Expired execution window'; end if;
   update public.account_deletion_operations set expires_at=pg_catalog.clock_timestamp()-interval '1 hour' where id=(op->>'operationId')::uuid;
   if public.get_account_deletion_status((op->>'operationId')::uuid,hash)<>'expired' then raise exception 'Receipt expiry'; end if;

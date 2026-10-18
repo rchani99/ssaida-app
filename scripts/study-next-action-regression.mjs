@@ -73,7 +73,7 @@ const query = (data, name) => ({ data, refetch: () => refetches.push(name) });
 function reset(rows = [done, next], pastRows = []) {
   tasks = query(rows, 'tasks');
   continuing = query(pastRows, 'continuing');
-  child = query({ id: 'child' }, 'child');
+  child = query({ id: 'child', selected_collection_theme_code: 'DINO' }, 'child');
   plan = query({ id: 'plan' }, 'plan');
   lock = { current: false };
   routes = [];
@@ -120,6 +120,11 @@ const render = (celebrate = true) =>
   StudyCompletionActions({ taskId: 'done', celebrate, status: 'CHILD_COMPLETED' });
 const button = (label) =>
   nodes(render()).find((n) => n.type === 'Button' && n.props.label === label);
+reset();
+child.data.selected_collection_theme_code = null;
+button('다음 공부 시작').props.onPress();
+assert.deepEqual(routes, ['/choose-theme']);
+assert.deepEqual(calls, [], 'Choose a theme before starting the next study');
 reset();
 assert.ok(JSON.stringify(render()).includes('다음 문제집'));
 assert.ok(!nodes(render()).some((n) => n.type === 'Reward'));

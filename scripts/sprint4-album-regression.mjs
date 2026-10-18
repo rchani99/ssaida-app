@@ -297,6 +297,7 @@ const themeMutation = {
   },
 };
 const { CollectionPanel } = load('src/features/learning/components/collection-panel.tsx', {
+  '@/features/learning/components/first-theme-picker': { FirstThemePicker: 'FirstThemePicker' },
   '@/features/learning/components/growth-visual': { GrowthVisual: 'GrowthVisual' },
   '@/features/learning/components/collection-artwork': { CollectionArtwork: 'CollectionArtwork' },
   react: {

@@ -29,6 +29,9 @@ let count = 0,
   route;
 const colors = { primaryLight: 'green', card: 'white' };
 const mocks = {
+  '@/features/learning/components/today-collection-card': {
+    TodayCollectionCard: 'TodayCollectionCard',
+  },
   '@/features/learning/components/rest-day-card': { RestDayCard: 'RestDayCard' },
   '@/features/learning/components/daily-study-celebration': {
     DailyStudyCelebration: 'DailyStudyCelebration',

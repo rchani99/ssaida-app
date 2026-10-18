@@ -7,6 +7,7 @@ import { dashboardIconProps } from '@/design-system/icons';
 import { colors, dashboardTokens as t } from '@/design-system/tokens';
 import { DailyStudyCelebration } from '@/features/learning/components/daily-study-celebration';
 import { RestDayCard } from '@/features/learning/components/rest-day-card';
+import { TodayCollectionCard } from '@/features/learning/components/today-collection-card';
 import {
   useContinuingTasks,
   useCurrentChild,
@@ -99,6 +100,10 @@ export function ChildTodayScreen() {
     ![childQuery, planQuery, tasksQuery, continuingQuery].some((query) => query.isFetching);
   const handleOpen = (task: DailyTask) => {
     if (!canOpenTask(task) || startTask.isPending) return;
+    if (!childQuery.data?.selected_collection_theme_code) {
+      router.push('/choose-theme');
+      return;
+    }
     setOpeningId(task.id);
     const onOpen = () => router.push({ pathname: '/study/[taskId]', params: { taskId: task.id } });
     if (task.status === 'PLANNED' || task.status === 'RETRY') {
@@ -120,6 +125,7 @@ export function ChildTodayScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container}>
+        <TodayCollectionCard child={childQuery.data} />
         {allDone && (
           <DailyStudyCelebration
             key={`${childId}:${today}`}

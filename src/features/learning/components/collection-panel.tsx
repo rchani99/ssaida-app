@@ -2,14 +2,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import {
-  childCollectionTokens as reward,
-  colors,
-  radius,
-  sizing,
-  spacing,
-} from '@/design-system/tokens';
+import { childCollectionTokens as reward, colors, sizing, spacing } from '@/design-system/tokens';
 import { CollectionArtwork } from '@/features/learning/components/collection-artwork';
+import { FirstThemePicker } from '@/features/learning/components/first-theme-picker';
 import { GrowthVisual } from '@/features/learning/components/growth-visual';
 import {
   learningKeys,
@@ -54,27 +49,7 @@ export function CollectionPanel({
   if (!child.selected_collection_theme_code) {
     return (
       <View style={styles.panel}>
-        <Text accessible={false} style={styles.mascot}>
-          ✦
-        </Text>
-        <Text style={styles.title}>어떤 친구를 키워볼까요?</Text>
-        <Text style={styles.description}>공부를 마치고 부모님께 확인받으면 조금씩 자라요.</Text>
-        <View style={styles.themeGrid}>
-          {THEMES.map((theme) => (
-            <Pressable
-              accessibilityRole="button"
-              disabled={selectTheme.isPending}
-              key={theme.code}
-              onPress={() => selectTheme.mutate(theme.code)}
-              style={styles.themeButton}
-            >
-              <Text style={styles.themeText}>{theme.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-        {selectTheme.isError && (
-          <Text style={styles.error}>테마를 선택하지 못했어요. 다시 시도해 주세요.</Text>
-        )}
+        <FirstThemePicker pendingPoints={child.pending_growth_points} />
       </View>
     );
   }
@@ -255,17 +230,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   description: { color: colors.textSecondary, fontSize: 14, lineHeight: 21 },
-  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  themeButton: {
-    minWidth: '30%',
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.button,
-    backgroundColor: reward.mint,
-  },
-  themeText: { color: colors.textPrimary, fontWeight: '700' },
   primaryButton: {
     minHeight: sizing.buttonHeight,
     padding: spacing.md,

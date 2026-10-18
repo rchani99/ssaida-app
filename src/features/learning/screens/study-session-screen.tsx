@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { LearningButton } from '@/features/learning/components/learning-controls
 import { StudyCompletionActions } from '@/features/learning/components/study-completion-actions';
 import {
   useCompleteDailyTask,
+  useCurrentChild,
   useDailyTask,
   useStartDailyTask,
 } from '@/features/learning/hooks/use-learning';
@@ -18,6 +19,7 @@ export function StudySessionScreen() {
   const params = useLocalSearchParams<{ taskId: string | string[] }>();
   const taskId = Array.isArray(params.taskId) ? params.taskId[0] : params.taskId;
   const taskQuery = useDailyTask(taskId);
+  const child = useCurrentChild();
   const startTask = useStartDailyTask();
   const completeTask = useCompleteDailyTask();
   const [completedHere, setCompletedHere] = useState<string | null>(null);
@@ -63,6 +65,20 @@ export function StudySessionScreen() {
   );
   const canStart = task.status === 'PLANNED' || task.status === 'RETRY';
   const canComplete = task.status === 'IN_PROGRESS';
+
+  // Direct links and an already-running study must also choose a reward first.
+  if (!isCompleted) {
+    if (child.isLoading) return <ScreenMessage loading message="키우는 친구를 확인하고 있어요." />;
+    if (child.isError || !child.data)
+      return (
+        <ScreenMessage
+          message="아이 정보를 불러오지 못했어요."
+          actionLabel="다시 불러오기"
+          onAction={() => void child.refetch()}
+        />
+      );
+    if (!child.data.selected_collection_theme_code) return <Redirect href="/choose-theme" />;
+  }
 
   return (
     <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeArea}>

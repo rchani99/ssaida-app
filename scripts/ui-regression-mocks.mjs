@@ -44,6 +44,10 @@ const iconNames = [
 export function uiMocks(overrides) {
   if (overrides['react-native']) overrides['react-native'].StyleSheet ??= { create: (v) => v };
   return {
+    '@/features/learning/components/today-collection-card': {
+      TodayCollectionCard: 'TodayCollectionCard',
+    },
+    '@/features/learning/components/first-theme-picker': { FirstThemePicker: 'FirstThemePicker' },
     '@/features/learning/components/rest-day-card': { RestDayCard: 'RestDayCard' },
     '@/features/learning/components/daily-study-celebration': {
       DailyStudyCelebration: 'DailyStudyCelebration',
@@ -63,6 +67,10 @@ export function uiMocks(overrides) {
     },
     '@/shared/components/segmented-tabs': { SegmentedTabs: 'Tabs' },
     ...overrides,
+    '@/features/learning/hooks/use-learning': {
+      useCurrentChild: () => ({ data: { id: 'child', selected_collection_theme_code: 'DINO' } }),
+      ...overrides['@/features/learning/hooks/use-learning'],
+    },
     '@/design-system/tokens': {
       ...tokens,
       ...overrides['@/design-system/tokens'],

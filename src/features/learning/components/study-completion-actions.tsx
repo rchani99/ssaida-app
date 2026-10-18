@@ -50,6 +50,10 @@ export function StudyCompletionActions({
 
   const openNext = () => {
     if (!next || opening.current || start.isPending) return;
+    if (!child.data?.selected_collection_theme_code) {
+      router.replace('/choose-theme');
+      return;
+    }
     opening.current = true;
     const navigate = () =>
       router.replace({ pathname: '/study/[taskId]', params: { taskId: next.id } });

@@ -192,6 +192,10 @@ function loadComponent(path, imports) {
 let mode = 'child';
 params = { destination: 'parent-review' };
 const index = loadComponent('src/app/index.tsx', {
+  '@/features/learning/hooks/use-learning': {
+    useCurrentChild: () => ({ data: { id: 'child', selected_collection_theme_code: 'DINO' } }),
+  },
+  '@/shared/components/screen-message': { ScreenMessage: 'Message' },
   'react/jsx-runtime': mocks['react/jsx-runtime'],
   'expo-router': { Redirect: 'Redirect', useLocalSearchParams: () => params },
   '@/store/app-mode.store': { useAppModeStore: (select) => select({ mode }) },

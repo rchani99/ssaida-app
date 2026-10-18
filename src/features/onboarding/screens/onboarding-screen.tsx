@@ -65,8 +65,8 @@ export function OnboardingScreen() {
     setIsSubmitting(true);
     try {
       await completeOnboarding({ childName, dailyTargetMinutes, parentPin: pin });
-      await refreshProfile();
       setMode('child');
+      await refreshProfile();
     } catch {
       setErrorMessage('온보딩 정보를 저장하지 못했습니다. 다시 시도해 주세요.');
     } finally {

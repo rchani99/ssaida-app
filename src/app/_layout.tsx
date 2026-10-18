@@ -54,6 +54,7 @@ function RootNavigator() {
         <Stack.Protected guard={isAuthenticated && !needsOnboarding}>
           <Stack.Screen name="index" />
           <Stack.Screen name="child" />
+          <Stack.Screen name="choose-theme" />
           <Stack.Protected guard={mode === 'parent'}>
             <Stack.Screen name="parent" />
             <Stack.Screen

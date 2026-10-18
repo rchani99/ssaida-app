@@ -535,6 +535,7 @@ const session = harness(
   'StudySessionScreen',
   {
     [hooks]: {
+      useCurrentChild: () => ({ data: { id: 'child', selected_collection_theme_code: 'DINO' } }),
       useDailyTask: () => ({
         data: {
           id: 'task',

@@ -167,6 +167,7 @@ const { StudySessionScreen } = load('src/features/learning/screens/study-session
   '@/shared/components/screen-message': { ScreenMessage: 'Message' },
   '@/features/learning/hooks/use-learning': {
     useDailyTask: () => ({ data: { ...task, status } }),
+    useCurrentChild: () => ({ data: { id: 'child', selected_collection_theme_code: 'DINO' } }),
     useStartDailyTask: () => ({}),
     useCompleteDailyTask: () => ({
       mutate: (_id, cb) => {

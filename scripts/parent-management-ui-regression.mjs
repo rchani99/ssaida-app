@@ -29,6 +29,10 @@ let items = { data: [] };
 const jsx = (type, props) => ({ type, props });
 const mocks = {
   react: {
+    useRef(initial) {
+      const index = cursor++;
+      return (slots[index] ??= { current: initial });
+    },
     useState(initial) {
       const index = cursor++;
       if (!(index in slots)) slots[index] = initial;
@@ -171,7 +175,30 @@ field('다음 시작 페이지', '28');
 click('등록하기');
 assert.equal(writes.at(-1).kind, 'create');
 assert.equal(writes.at(-1).args[0].workbookNextStartPage, 28);
+assert.equal(writes.at(-1).args[0].applyFromToday, false);
+const savedRegistration = writes.at(-1);
+click('등록하기');
+assert.equal(writes.at(-1), savedRegistration, 'Double submit must not register another item');
+savedRegistration.args[1].onSettled();
+click('오늘부터 적용');
+assert.equal(
+  nodes(render()).find((node) => node.props?.accessibilityLabel === '오늘부터 적용').props
+    .accessibilityState.checked,
+  true,
+);
+click('등록하기');
+assert.equal(writes.at(-1).args[0].applyFromToday, true);
+writes.at(-1).args[1].onSuccess();
+writes.at(-1).args[1].onSettled();
+click('+ 공부 등록');
+assert.equal(
+  nodes(render()).find((node) => node.props?.accessibilityLabel === '오늘부터 적용').props
+    .accessibilityState.checked,
+  false,
+  'Successful registration resets the checkbox',
+);
 mount(StudyItemForm, { childId: 'child', item });
+assert.ok(!nodes(render()).some((node) => node.props?.accessibilityLabel === '오늘부터 적용'));
 field('다음 시작 페이지', '40');
 click('변경 저장');
 assert.equal(writes.at(-1).kind, 'update');
@@ -186,8 +213,10 @@ click('+ 공부 등록');
 click('활동');
 field('공부 이름', 'Read');
 click('월');
+click('오늘부터 적용');
 click('등록하기');
 assert.equal(writes.at(-1).args[0].itemType, 'ACTIVITY');
+assert.equal(writes.at(-1).args[0].applyFromToday, true);
 assert.equal(writes.at(-1).args[0].workbookNextStartPage, undefined);
 console.log(
   'PASS management relocation: route, isolated responsibilities, loading/error, workbook/activity registration, override validation, edit/pause/resume/confirmed soft delete',

@@ -467,6 +467,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      create_study_item: {
+        Args: { target_child_id: string; item_values: Json; apply_from_today?: boolean };
+        Returns: Database['public']['Tables']['study_items']['Row'][];
+      };
       add_manual_daily_task: {
         Args: {
           manual_item_type: string;

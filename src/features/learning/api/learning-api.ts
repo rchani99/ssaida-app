@@ -135,21 +135,22 @@ export async function saveDailyTargetMinutes(input: { childId: string; minutes: 
 
 export async function createStudyItem(input: CreateStudyItemInput) {
   const { data, error } = await getSupabaseClient()
-    .from('study_items')
-    .insert({
-      child_id: input.childId,
-      item_type: input.itemType,
-      name: input.name.trim(),
-      subject: input.subject,
-      estimated_minutes: input.estimatedMinutes,
-      study_weekdays: input.studyWeekdays,
-      workbook_pages_per_session:
-        input.itemType === 'WORKBOOK' ? input.workbookPagesPerSession : null,
-      workbook_last_page: input.itemType === 'WORKBOOK' ? input.workbookLastPage : null,
-      workbook_last_completed_page:
-        input.itemType === 'WORKBOOK' ? (input.workbookNextStartPage ?? 1) - 1 : null,
+    .rpc('create_study_item', {
+      target_child_id: input.childId,
+      apply_from_today: input.applyFromToday ?? false,
+      item_values: {
+        item_type: input.itemType,
+        name: input.name.trim(),
+        subject: input.subject,
+        estimated_minutes: input.estimatedMinutes,
+        study_weekdays: input.studyWeekdays,
+        workbook_pages_per_session:
+          input.itemType === 'WORKBOOK' ? input.workbookPagesPerSession : null,
+        workbook_last_page: input.itemType === 'WORKBOOK' ? input.workbookLastPage : null,
+        workbook_next_start_page:
+          input.itemType === 'WORKBOOK' ? (input.workbookNextStartPage ?? 1) : null,
+      },
     })
-    .select('*')
     .single();
   throwLearningError('createStudyItem', error);
   return data;

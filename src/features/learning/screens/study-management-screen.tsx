@@ -1,4 +1,4 @@
-import { BookOpen, Clock3 } from 'lucide-react-native';
+import { BookOpen, Check, Clock3 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -256,6 +256,8 @@ function StudyItemForm({
   );
   const [minutes, setMinutes] = useState(String(item?.estimated_minutes ?? 20));
   const [weekdays, setWeekdays] = useState<number[]>(item?.study_weekdays ?? []);
+  const [applyFromToday, setApplyFromToday] = useState(false);
+  const submitting = useRef(false);
   const [pagesPerSession, setPagesPerSession] = useState(
     String(item?.workbook_pages_per_session ?? 5),
   );
@@ -290,7 +292,7 @@ function StudyItemForm({
   };
 
   const submit = () => {
-    if (busy) return;
+    if (busy || submitting.current) return;
     setMessage(null);
     const estimatedMinutes = Number(minutes);
     const pages = Number(pagesPerSession);
@@ -342,6 +344,7 @@ function StudyItemForm({
       );
       return;
     }
+    submitting.current = true;
     createItem.mutate(
       {
         childId,
@@ -350,6 +353,7 @@ function StudyItemForm({
         subject,
         estimatedMinutes,
         studyWeekdays: availableWeekdays,
+        applyFromToday,
         workbookPagesPerSession: itemType === 'WORKBOOK' ? pages : undefined,
         workbookLastPage: itemType === 'WORKBOOK' ? last : undefined,
         workbookNextStartPage: itemType === 'WORKBOOK' ? next : undefined,
@@ -360,10 +364,14 @@ function StudyItemForm({
           setName('');
           setNextPage('1');
           setWeekdays([]);
+          setApplyFromToday(false);
           setExpanded(false);
           setMessage('공부를 등록했어요.');
         },
         onError: () => setMessage('공부를 등록하지 못했어요. 입력 내용을 확인해 주세요.'),
+        onSettled: () => {
+          submitting.current = false;
+        },
       },
     );
   };
@@ -550,6 +558,28 @@ function StudyItemForm({
                 </View>
               </View>
             )}
+            {!item && (
+              <View style={styles.field}>
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityLabel="오늘부터 적용"
+                  accessibilityState={{ checked: applyFromToday, disabled: busy }}
+                  disabled={busy}
+                  onPress={() => setApplyFromToday((checked) => !checked)}
+                  style={styles.applyTodayRow}
+                >
+                  <View style={[styles.checkbox, applyFromToday && styles.checkboxChecked]}>
+                    {applyFromToday && <Check size={16} color={colors.card} accessible={false} />}
+                  </View>
+                  <Text style={styles.label}>오늘부터 적용</Text>
+                </Pressable>
+                <Text style={styles.description}>
+                  {applyFromToday
+                    ? '오늘이 공부 요일이고 휴식일이 아니면 오늘 계획에도 바로 추가해요.'
+                    : '선택한 공부 요일에 맞춰 내일부터 적용해요.'}
+                </Text>
+              </View>
+            )}
             <Pressable
               accessibilityRole="button"
               disabled={busy}
@@ -664,6 +694,22 @@ const styles = StyleSheet.create({
   segmentText: { color: colors.textSecondary, fontWeight: '700' },
   segmentTextSelected: { color: colors.primaryDark },
   field: { gap: 2 },
+  applyTodayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[8],
+    minHeight: t.icon.touchMin,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: { borderColor: colors.primary, backgroundColor: colors.primary },
   label: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   input: {
     minHeight: t.icon.touchMin,

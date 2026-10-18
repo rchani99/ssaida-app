@@ -25,6 +25,7 @@ export type CreateStudyItemInput = {
   workbookPagesPerSession?: number;
   workbookLastPage?: number;
   workbookNextStartPage?: number;
+  applyFromToday?: boolean;
 };
 
 export type ConfirmationInput = {

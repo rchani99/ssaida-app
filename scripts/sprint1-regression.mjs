@@ -78,8 +78,9 @@ const api = load('src/features/learning/api/learning-api.ts', {
   '@/lib/supabase/client': {
     getSupabaseClient: () => ({
       from: () => query,
-      rpc: async (name, args) => {
+      rpc: (name, args) => {
         rpcCalls.push({ name, args });
+        if (name === 'create_study_item') return { single: query.single };
         return { error: null };
       },
     }),
@@ -96,7 +97,9 @@ await api.createStudyItem({
   workbookLastPage: 100,
   workbookNextStartPage: 28,
 });
-assert.equal(writes.at(-1).workbook_last_completed_page, 27);
+assert.equal(rpcCalls.at(-1).name, 'create_study_item');
+assert.equal(rpcCalls.at(-1).args.item_values.workbook_next_start_page, 28);
+assert.equal(rpcCalls.at(-1).args.apply_from_today, false);
 await api.createStudyItem({
   childId: 'child',
   itemType: 'ACTIVITY',
@@ -104,8 +107,10 @@ await api.createStudyItem({
   subject: null,
   estimatedMinutes: 20,
   studyWeekdays: [1],
+  applyFromToday: true,
 });
-assert.equal(writes.at(-1).workbook_last_completed_page, null);
+assert.equal(rpcCalls.at(-1).args.item_values.workbook_next_start_page, null);
+assert.equal(rpcCalls.at(-1).args.apply_from_today, true);
 const item = {
   id: 'item',
   status: 'ACTIVE',

@@ -1,19 +1,19 @@
 import { ActionError } from './core.ts';
 
-export type PurgeDependencies = {
+export type PurgeDependencies<T = string> = {
   // Undefined disables the route entirely: no secret, no scheduled deletion.
   secret?: string;
-  claim(): Promise<string | null>;
+  claim(): Promise<T | null>;
   due(): Promise<number>;
-  deleteUser(userId: string): Promise<void>;
+  deleteUser(lease: T): Promise<void>;
   now(): number;
-  // Bounds one invocation so a scheduler timeout cannot cut a deletion mid-flight.
+  // Bounds new starts; an in-flight call can outlast this budget and recover by lease expiry.
   maxDeletions?: number;
   budgetMs?: number;
 };
 
 // Constant-time comparison: a scheduler secret must not be discoverable byte by byte.
-function sameSecret(provided: string, expected: string) {
+export function sameSecret(provided: string, expected: string) {
   const a = new TextEncoder().encode(provided);
   const b = new TextEncoder().encode(expected);
   let diff = a.byteLength ^ b.byteLength;
@@ -24,7 +24,7 @@ function sameSecret(provided: string, expected: string) {
 // Finishes deletions whose waiting period elapsed, for owners who never came back.
 // Authorized by a dedicated scheduler secret, never by an app session: no user JWT can
 // reach this route, and it can only delete accounts the server already marked as due.
-export function createPurgeHandler(deps: PurgeDependencies) {
+export function createPurgeHandler<T = string>(deps: PurgeDependencies<T>) {
   const limit = deps.maxDeletions ?? 25;
   const budget = deps.budgetMs ?? 20000;
   return async (request: Request): Promise<Response> => {
@@ -39,10 +39,10 @@ export function createPurgeHandler(deps: PurgeDependencies) {
       let deleted = 0;
       let stopped: string | null = null;
       while (deleted < limit && deps.now() - started < budget) {
-        const userId = await deps.claim();
-        if (!userId) break;
+        const lease = await deps.claim();
+        if (!lease) break;
         try {
-          await deps.deleteUser(userId);
+          await deps.deleteUser(lease);
         } catch {
           // The request stays consumed and claimed; the next run retries after the backoff.
           // Never echo the SDK error or the account identifier.

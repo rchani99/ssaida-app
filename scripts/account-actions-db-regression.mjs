@@ -6,6 +6,9 @@ import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { request } from 'node:http';
 
+import { runDeletionEmailCases } from './lib/account-deletion-email-db-cases.mjs';
+import { runDeletionV1Cases } from './lib/account-deletion-v1-db-cases.mjs';
+
 const suffix = randomUUID().slice(0, 8);
 const network = `ssaida-account-test-${suffix}`;
 const db = `${network}-db`;
@@ -109,7 +112,13 @@ const localFetch = (url, options = {}) =>
     assert.equal(target.hostname, '127.0.0.1');
     const req = request(
       target,
-      { method: options.method ?? 'GET', headers: options.headers },
+      {
+        method: options.method ?? 'GET',
+        headers: {
+          ...options.headers,
+          ...(options.body ? { 'Content-Length': Buffer.byteLength(options.body) } : {}),
+        },
+      },
       (res) => {
         let body = '';
         res.setEncoding('utf8');
@@ -161,7 +170,7 @@ try {
   }
   assert.ok(ready, 'isolated DB ready');
   for (const file of readdirSync('supabase/migrations')
-    .filter((name) => name.endsWith('.sql'))
+    .filter((name) => name.endsWith('.sql') && name < '202610180002')
     .sort()) {
     stage = file;
     sql(readFileSync(`supabase/migrations/${file}`, 'utf8'));
@@ -462,10 +471,43 @@ try {
   console.log(
     'PASS real isolated Auth Admin deletion: profile cascade, deleted user lookup and refresh rejected',
   );
+  // Historical contracts are exercised against their deployed schema above. New policy
+  // intentionally forbids their unauthenticated-email request creation; never relax v1 for tests.
+  stage = 'v1 upgrade and regression';
+  const storageFixture = (input) =>
+    run(
+      ['exec', '-i', db, 'psql', '-U', 'supabase_admin', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'],
+      input,
+    );
+  await runDeletionV1Cases({
+    sql,
+    storageFixture,
+    concurrentSql,
+    holdTransaction,
+    localFetch,
+    base,
+    adminHeaders,
+    password,
+    setStage: (value) => {
+      stage = value;
+    },
+  });
+  await runDeletionEmailCases({
+    sql,
+    concurrentSql,
+    setStage: (value) => {
+      stage = value;
+    },
+  });
 } catch (error) {
   // Do not dump execFile errors: Docker arguments contain throwaway credentials.
   process.exitCode = 1;
   console.error(`FAIL isolated account DB/Auth regression at ${stage} (no credentials logged)`);
+  const detail =
+    error instanceof assert.AssertionError ? error.message : String(error.stderr ?? '');
+  console.error(
+    detail.replaceAll(password, '[redacted]').replaceAll(secret, '[redacted]').slice(-1200),
+  );
   if (stage === 'Auth startup') {
     try {
       const logResult = spawnSync(docker, ['logs', '--tail', '5', auth], { encoding: 'utf8' });

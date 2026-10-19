@@ -71,6 +71,7 @@ export async function readSmallJson(request: Request): Promise<Record<string, un
 export type Dependencies = {
   enabled(purpose: Purpose): boolean;
   authenticate(token: string): Promise<Actor>;
+  confirmDeletion?(actor: Actor, proofId: string, token: string): Promise<object>;
   request(actor: Actor, purpose: Purpose): Promise<Challenge>;
   resume(actor: Actor, purpose: Purpose): Promise<Challenge | null>;
   cancel(actor: Actor, id: string): Promise<boolean>;
@@ -82,6 +83,8 @@ export type Dependencies = {
     actor: Actor,
     id: string,
   ): Promise<{ operationId: string; receipt: string; expiresAt: string }>;
+  // Historical dependency name: v1 validates the operation here; deleteUser acquires
+  // the atomic lease immediately before running the common executor.
   consumeDelete(actor: Actor, id: string, operationId: string): Promise<boolean>;
   deletionStatus(
     operationId: string,
@@ -92,8 +95,8 @@ export type Dependencies = {
   now(): number;
 };
 
-// Authorization for a sensitive action is elapsed time recorded server-side, never a value
-// supplied by the caller. This handler trusts no body user ID and no client-side "waited" flag.
+// PIN recovery retains its server-recorded delay. New deletions require a distinct email
+// capability before starting the grace period. No body user ID or client verification flag.
 export function createHandler(deps: Dependencies) {
   return async (request: Request): Promise<Response> => {
     const response = (body: object, status = 200) =>
@@ -128,10 +131,26 @@ export function createHandler(deps: Dependencies) {
         watch_delete: ['action', 'id'],
         delete: ['action', 'id', 'operationId'],
         reset_pin: ['action', 'id', 'newPin'],
+        confirm_deletion: ['action', 'proofId', 'token'],
       };
       const action = typeof body.action === 'string' ? body.action : '';
       if (!keys[action] || Object.keys(body).some((key) => !keys[action].includes(key)))
         throw new ActionError(400, 'INVALID_REQUEST');
+      if (action === 'confirm_deletion') {
+        if (!deps.enabled('delete_account') || !deps.confirmDeletion)
+          throw new ActionError(503, 'NOT_CONFIGURED');
+        if (
+          typeof body.proofId !== 'string' ||
+          !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.proofId) ||
+          typeof body.token !== 'string' ||
+          !/^[0-9a-f]{64}$/.test(body.token)
+        )
+          throw new ActionError(400, 'INVALID_REQUEST');
+        return response(await deps.confirmDeletion(actor, body.proofId, body.token));
+      }
+      // Preserve the Google identity requirement for the legacy PIN recovery flow only.
+      if ((body.purpose === 'reset_parent_pin' || action === 'reset_pin') && !actor.googleSub)
+        throw new ActionError(403, 'GOOGLE_IDENTITY_REQUIRED');
       if (action === 'begin' || action === 'resume') {
         if (body.purpose !== 'delete_account' && body.purpose !== 'reset_parent_pin')
           throw new ActionError(400, 'INVALID_REQUEST');
@@ -176,7 +195,8 @@ export function createHandler(deps: Dependencies) {
         throw new ActionError(400, 'INVALID_REQUEST');
       if (!(await deps.consumeDelete(actor, body.id, body.operationId)))
         throw new ActionError(403, 'WAIT_REQUIRED');
-      // Claim first. An ambiguous Admin failure is retried by the scheduler after backoff.
+      // The executor claims atomically, rechecking cancellation and the deadline.
+      // An ambiguous Admin failure stays fenced and is retried by the scheduler.
       await deps.deleteUser(actor);
       return response({ status: 'deleted' });
     } catch (error) {

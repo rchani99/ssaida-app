@@ -3,6 +3,48 @@
 초등학생의 공부 습관 관리를 위한 React Native/Expo 앱입니다. 부모 인증과 온보딩에 더해 학습
 등록, 오늘 계획, 공부 시작·완료, 부모 확인, 컬렉션 성장의 핵심 흐름을 Supabase에 연결합니다.
 
+## 네이밍 표준
+
+한글 이름은 **쌓이다**, 영문 브랜드는 **Ssaida**, 코드 및 신규 식별자의 기본 표기는
+**`ssaida`**, Firebase 테스터 그룹 alias는 **`ssaida-beta`**를 사용합니다.
+새 문서·표시 문구·설정 이름에 적용하며, 기존 배포·인증·DB 연결값은 일괄 치환하지 않습니다.
+
+2026-10-19 저장소 전체의 `ssahida` / `ssaida` 표기를 대소문자 구분 없이 조사했습니다.
+앱 소스·설정·스크립트·문서와 Git 제외 `sites/ssaida-pilot`의 소스를 확인했으며,
+의존성·생성 빌드·캐시·로그·과거 산출물은 수정 대상에서 제외했습니다.
+
+| 위치 | 확인 결과 및 처리 |
+| --- | --- |
+| `README.md`, `app.json`, `package.json` | 브랜드 `Ssaida`, 앱 이름 `쌓이다`, 코드 이름 `ssaida-app`은 표준에 부합. 개발 실행 안내의 표시명을 `쌓이다 (Ssaida)`로 정리 |
+| `src/config`, `src/features/auth`, `src/features/notifications` | URI·저장 키·알림 ID는 이미 `ssaida` 사용. 기존 데이터 및 인증 호환성을 위해 유지 |
+| `supabase`, `scripts` | 로컬 프로젝트·DB 컨테이너·cron 작업·검증 코드의 `ssaida` 유지. 개발 실행 스크립트는 안내 문구만 `Ssaida`로 정리 |
+| `scripts/distribute-beta.ps1`, `docs/beta-distribution.md` | Firebase 그룹 alias는 이미 `ssaida-beta`로 일치. 실제 외부 그룹 생성·변경은 수행하지 않음 |
+| `docs/build-environments.md`, `docs/production-db-deployment.md`, `docs/beta-distribution.md` | 기존 서비스 이름·빌드 URL을 기록한 `ssahida`는 유지 |
+| `docs/marketing`, `sites/ssaida-pilot` | `ssahida`는 기존 연락처·계정·게시 URL에 사용하므로 유지. `ssaida` 로컬 경로와 산출물 이름도 유지 |
+
+다음은 **유지할 기존 식별자·설정과 그 출처**입니다. `ssahida`가 남은 외부 이름은 표준의
+예외이며, 변경하려면 별도 서비스 이전 및 호환성 검토가 필요합니다.
+출처는 로컬 설정·소스와 문서 기록을 구분했습니다. 이번 조사에서 외부 콘솔의 현재 상태,
+실제 환경변수 값, 이메일 수신 여부를 재확인한 것은 아닙니다. 줄 번호는 조사 시점 기준입니다.
+
+| 구분 | 확인한 값·사용 방식 | 출처 | 유지 이유 |
+| --- | --- | --- | --- |
+| Expo/EAS 연결 | slug `ssahida-app`, owner `ssahidas-team`, projectId `22da5823-40f1-488c-88a7-197639eaae9a` | 실제 설정: [app.json 4~8행](app.json#L4). 기존 빌드 URL 기록: [체험단 배포 문서 171행](docs/beta-distribution.md#L171) | 기존 계정·프로젝트의 빌드 연결과 이력 참조를 유지 |
+| Android / iOS | package / bundleIdentifier `com.ssaida.app` | 실제 설정: [Android 29행](app.json#L29), [iOS 18행](app.json#L18) | 기존 앱 식별 및 배포·인증 연동을 유지. 서명·배포 설정도 변경하지 않음 |
+| Supabase 프로젝트 | 운영 이름 `ssahida-prod`, 운영 ref `thinmctzgynmtuihirng`, DEV ref `ffnxodulitwzuqswlaga` | 운영 이름·ref는 [배포 기록 5행](docs/production-db-deployment.md#L5), DEV ref는 [환경 검증 코드 2행](src/config/environment-policy.js#L2) | 운영 배포 기록과 개발 환경 식별을 유지. 운영 이름은 문서에서 확인한 값이며 콘솔 재확인 결과가 아님 |
+| Supabase URL | 개발·운영 URL을 각각 `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_PRODUCTION_SUPABASE_URL`에서 읽음 | 실제 주입 코드: [app.config.js 16~18행](app.config.js#L16) | 기존 DB 연결 대상과 환경 분리를 유지. 실제 주입된 URL 값을 이번에 확인하거나 변경하지 않음 |
+| OAuth | scheme `ssaida`, redirect URI `ssaida://auth/callback`; Supabase `/auth/v1/callback` 및 OAuth 클라이언트 설정 절차 | 실제 설정: [app.json 14행](app.json#L14), [환경 검증 코드 3행](src/config/environment-policy.js#L3). 설정 절차: 아래 [Google Cloud 설정](#google-cloud-설정) | 앱 복귀 경로와 인증 연동을 유지. 외부 콘솔의 실제 callback·클라이언트 값은 재확인하지 않음 |
+| 로컬 DB | 프로젝트 `ssaida-app`, 컨테이너 `supabase_db_ssaida-app` | 실제 설정: [config.toml 5행](supabase/config.toml#L5). 컨테이너 사용: [DB 검증 스크립트](scripts/step4-2-integration.mjs) | 기존 로컬 DB와 검증 스크립트의 연결을 유지 |
+| DB 작업 / 로컬 저장 | `ssaida-account-deletion-purge`, `ssaida-account-action-cleanup`, 기존 `ssaida` 저장 키·알림 ID | 작업 정의: [삭제 cron 19행](supabase/snippets/account-deletion-schedule.sql#L19), [정리 cron 28행](supabase/snippets/account-deletion-schedule.sql#L28). 저장·알림 코드: [계정 복구](src/features/auth/services/account-recovery.ts), [알림 저장](src/features/notifications/storage.ts), [알림 ID](src/features/notifications/planner.ts) | 기존 작업 이름과 저장 데이터·알림의 연속성을 유지 |
+| Firebase App ID / 프로젝트 ID | `FIREBASE_APP_ID`, `FIREBASE_PROJECT_ID` 환경변수를 검증하고 CLI의 `--app`, `--project`에 전달 | 실제 코드: [검증 9~13행](scripts/distribute-beta.ps1#L9), [주입 26~27행](scripts/distribute-beta.ps1#L26). 프로젝트 조회 이력: [배포 문서 23행](docs/beta-distribution.md#L23) | **실제 App ID 값을 확인한 것이 아니라 설정·주입 방식을 변경하지 않았음.** 배포 대상을 임의로 바꾸거나 ID를 새로 발급하지 않음. `adu-app-f039d`는 문서의 조회 이력이며 쌓이다용으로 확정된 값이 아님 |
+| Firebase 테스터 그룹 | `-Distribute` 지정 시 `--groups ssaida-beta` 전달 | 실제 코드: [배포 스크립트 33행](scripts/distribute-beta.ps1#L33) | 이미 표준에 부합. 외부 그룹의 존재 확인·생성·변경은 수행하지 않음 |
+| Instagram | `@ssahida.app`, `https://www.instagram.com/ssahida.app/` | 실제 링크: [사이트 소스 9행](sites/ssaida-pilot/app/page.tsx#L9). 안내 원고: [모집 문서 108행](docs/marketing/recruitment-copy.md#L108) | 기존 문의 계정으로 연결되는 주소를 보존 |
+| 문의 이메일 | `ssahida.app@gmail.com` | 실제 로컬 초안: [삭제 안내 소스 9행](sites/ssaida-pilot/app/account-deletion/page.tsx#L9). 사용자 제공 주소 기록: [운영 계획 87행](docs/marketing/launch-paid-20-daily-plan.md#L87) | 기존 문의·삭제 요청 연락처를 보존. 실제 수신 여부와 초안의 원격 반영 여부는 확인하지 않음 |
+| 기존 게시 사이트 | `https://ssahida-pilot.famous-orbit-7383.chatgpt.site` | 비공개 배포 주소 기록: [마케팅 README 23행](docs/marketing/README.md#L23) | 기존 게시 주소와 참조 링크를 보존 |
+
+`sites/ssaida-pilot` 출처는 Git 제외 로컬 소스이므로 저장소 웹 화면이나 다른 체크아웃에서는
+링크 대상이 없을 수 있습니다. 해당 소스 확인을 원격 사이트 반영 확인으로 해석하지 않습니다.
+
 ## 요구 환경
 
 - Node.js LTS
@@ -126,7 +168,7 @@ Metro를 실행합니다. pnpm 명령의 PATH 등록은 필요 없습니다. 기
 - 연결 주소 지정: `-ConnectTo 192.168.0.10:12345` 추가 (휴대폰에 표시된 현재 연결 포트 사용)
 - 이미 Metro가 켜져 있으면 해당 터미널에서 `Ctrl+C`로 종료 후 실행
 - 현재 `.env`를 그대로 사용하며 DB, OAuth 설정, APK 빌드/설치를 변경하지 않음
-- Expo Go QR 대신 설치된 `ssaida-app` 사용. 준비 완료 후 화면이 갱신되지 않으면 앱을 다시 열기
+- Expo Go QR 대신 설치된 쌓이다 (Ssaida) 앱 사용. 준비 완료 후 화면이 갱신되지 않으면 앱을 다시 열기
 
 `ExecutionPolicy Bypass`는 이 실행 프로세스에만 적용되며 시스템 실행 정책을 변경하지 않습니다.
 환경 준비 스크립트는 Google OAuth callback의 `Unmatched Route` 같은 앱 오류를 수정하지 않습니다.

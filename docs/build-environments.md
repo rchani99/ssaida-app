@@ -52,6 +52,9 @@ EAS `appVersionSource: remote`, production `autoIncrement: true`를 사용합니
 package/bundleIdentifier `com.ssaida.app`, scheme `ssaida`는 유지합니다.
 2026-10-16 기존 Expo 프로젝트에 맞춰 slug는 `ssahida-app`, owner는 `ssahidas-team`,
 `extra.eas.projectId`는 `22da5823-40f1-488c-88a7-197639eaae9a`로 연결했습니다.
+영문 브랜드는 `Ssaida`, 신규 코드·식별자는 `ssaida`를 사용합니다. 위 slug·owner·projectId와
+기존 빌드 URL은 배포 연결을 유지하기 위한 예외이므로 이름 통일 목적으로 변경하지 않습니다.
+전체 기준과 유지 목록은 [네이밍 표준](../README.md#네이밍-표준)을 따릅니다.
 표시 이름은 `쌓이다`입니다. 같은 package라 DEV/production 동시 설치가 안 되며
 서명이 다르면 교체 설치도 실패할 수 있습니다.
 

@@ -105,7 +105,7 @@ try {
     Invoke-Adb @('-s', $selected.Serial, 'shell', 'am', 'start', '-n', "$packageName/.MainActivity") | Out-Host
 
     Write-Host 'Starting Metro. Keep this terminal open; Ctrl+C stops it.'
-    Write-Host 'Use the installed ssaida-app, NOT the Expo Go QR code. Reload/open the app after Metro is ready.'
+    Write-Host 'Use the installed Ssaida app, NOT the Expo Go QR code. Reload/open the app after Metro is ready.'
     $expoArguments = @('--dns-result-order=ipv4first', $expoCli, 'start', '--localhost', '--port', '8081')
     if ($ClearCache) { $expoArguments += '--clear' }
     & $nodePath @expoArguments

@@ -107,10 +107,10 @@ export function tapDestination(
   target: { userId: string; childId: string; destination: string },
   userId: string,
   childId: string,
-  mode: string,
 ) {
   if (target.userId !== userId || target.childId !== childId) return null;
   if (target.destination === 'child') return 'child';
-  if (target.destination === 'parent') return mode === 'parent' ? 'parent' : 'pin';
+  // An external notification always requires fresh parent verification.
+  if (target.destination === 'parent') return 'pin';
   return null;
 }

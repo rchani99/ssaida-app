@@ -179,6 +179,21 @@ try {
   assert.equal(eas.build.production.android.buildType, 'app-bundle');
   assert.equal(eas.cli.appVersionSource, 'remote');
   assert.equal(eas.build.production.autoIncrement, true);
+  assert.equal(eas.build.beta.extends, 'production');
+  assert.equal(eas.build.beta.distribution, 'internal');
+  assert.equal(eas.build.beta.developmentClient, false);
+  assert.equal(eas.build.beta.android.buildType, 'apk');
+  process.env.EAS_BUILD_PROFILE = 'beta';
+  assert.equal(appConfig({ config: base }).extra.appEnvironment, 'production');
+  process.env.EXPO_PUBLIC_APP_ENV = 'development';
+  assert.throws(() => appConfig({ config: base }), /Release requires/);
+  process.env.EXPO_PUBLIC_APP_ENV = 'production';
+  process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN = 'true';
+  assert.throws(() => appConfig({ config: base }), /DEV login/);
+  process.env.EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN = 'false';
+  process.env.EAS_BUILD_PROFILE = 'unknown';
+  assert.throws(() => appConfig({ config: base }), /Unsupported EAS profile/);
+  process.env.EAS_BUILD_PROFILE = 'beta';
   // Exercise Expo's real config loader without loading local .env or printing public keys.
   const result = spawnSync(process.execPath, ['node_modules/expo/bin/cli', 'config', '--json'], {
     env: { ...process.env, EXPO_NO_DOTENV: '1' },

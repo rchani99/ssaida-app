@@ -17,6 +17,12 @@
       "autoIncrement": true,
       "env": { "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_ENABLE_DEV_EMAIL_LOGIN": "false" },
       "android": { "buildType": "app-bundle" }
+    },
+    "beta": {
+      "extends": "production",
+      "distribution": "internal",
+      "developmentClient": false,
+      "android": { "buildType": "apk" }
     }
   }
 }

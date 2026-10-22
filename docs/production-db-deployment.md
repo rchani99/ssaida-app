@@ -1,5 +1,9 @@
 # 운영 DB 배포 기록
 
+> 이 문서는 날짜별 운영 적용·검증 이력이다. 최신 목표 정책은 [제품 결정](product-decisions.md),
+> 새 개발 범위는 [백로그](development-backlog.md)를 따른다. 과거 14일 삭제 배포 기록은
+> 신규 이메일 인증·즉시 삭제 구현 또는 현재 운영 상태의 재확인 증거가 아니다.
+
 2026-10-13 최초 배포 완료.
 
 - 프로젝트: `ssahida-prod` / `thinmctzgynmtuihirng`

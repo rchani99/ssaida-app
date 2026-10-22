@@ -3,6 +3,14 @@
 초등학생의 공부 습관 관리를 위한 React Native/Expo 앱입니다. 부모 인증과 온보딩에 더해 학습
 등록, 오늘 계획, 공부 시작·완료, 부모 확인, 컬렉션 성장의 핵심 흐름을 Supabase에 연결합니다.
 
+## 개발 관리 기준
+
+최신 확정 정책은 [제품 결정](docs/product-decisions.md), 과제·승인 범위·완료 기준은
+[개발 백로그](docs/development-backlog.md), 현재 구현·배포 증거는 [개발 현황](docs/project-status.md)을
+따릅니다. 에이전트 실행 지침은 [AGENTS.md](AGENTS.md)에 있습니다. 2026-10-22 후속 요청으로
+DEV-02 초기 설정 개선의 구현·검증·독립 검수에 착수했습니다. DEV-01의 남은 검증은 유지하며 실제 배포·초대는 별도 승인 대상입니다.
+과거 자동화 DEV-01/02와 신규 제품 번호는 구분합니다.
+
 ## 네이밍 표준
 
 한글 이름은 **쌓이다**, 영문 브랜드는 **Ssaida**, 코드 및 신규 식별자의 기본 표기는
@@ -36,7 +44,7 @@
 | OAuth | scheme `ssaida`, redirect URI `ssaida://auth/callback`; Supabase `/auth/v1/callback` 및 OAuth 클라이언트 설정 절차 | 실제 설정: [app.json 14행](app.json#L14), [환경 검증 코드 3행](src/config/environment-policy.js#L3). 설정 절차: 아래 [Google Cloud 설정](#google-cloud-설정) | 앱 복귀 경로와 인증 연동을 유지. 외부 콘솔의 실제 callback·클라이언트 값은 재확인하지 않음 |
 | 로컬 DB | 프로젝트 `ssaida-app`, 컨테이너 `supabase_db_ssaida-app` | 실제 설정: [config.toml 5행](supabase/config.toml#L5). 컨테이너 사용: [DB 검증 스크립트](scripts/step4-2-integration.mjs) | 기존 로컬 DB와 검증 스크립트의 연결을 유지 |
 | DB 작업 / 로컬 저장 | `ssaida-account-deletion-purge`, `ssaida-account-action-cleanup`, 기존 `ssaida` 저장 키·알림 ID | 작업 정의: [삭제 cron 19행](supabase/snippets/account-deletion-schedule.sql#L19), [정리 cron 28행](supabase/snippets/account-deletion-schedule.sql#L28). 저장·알림 코드: [계정 복구](src/features/auth/services/account-recovery.ts), [알림 저장](src/features/notifications/storage.ts), [알림 ID](src/features/notifications/planner.ts) | 기존 작업 이름과 저장 데이터·알림의 연속성을 유지 |
-| Firebase App ID / 프로젝트 ID | `FIREBASE_APP_ID`, `FIREBASE_PROJECT_ID` 환경변수를 검증하고 CLI의 `--app`, `--project`에 전달 | 실제 코드: [검증 9~13행](scripts/distribute-beta.ps1#L9), [주입 26~27행](scripts/distribute-beta.ps1#L26). 프로젝트 조회 이력: [배포 문서 23행](docs/beta-distribution.md#L23) | **실제 App ID 값을 확인한 것이 아니라 설정·주입 방식을 변경하지 않았음.** 배포 대상을 임의로 바꾸거나 ID를 새로 발급하지 않음. `adu-app-f039d`는 문서의 조회 이력이며 쌓이다용으로 확정된 값이 아님 |
+| Firebase App ID / 프로젝트 ID | `FIREBASE_APP_ID`, `FIREBASE_PROJECT_ID`를 검증해 CLI에 전달. 후속 배포 기록의 프로젝트는 `ssaida-732f2` | 실제 주입: [배포 스크립트](scripts/distribute-beta.ps1). 앱/그룹 조회 및 업로드: [후속 배포 기록](docs/beta-distribution.md#후속-실기기-검수-및-pin-수정) | 최초 `adu-app-f039d` 조회와 후속 확인을 구분. 이번 문서 점검은 원격 App ID 재조회가 아니며 기존 연결값을 변경하지 않음 |
 | Firebase 테스터 그룹 | `-Distribute` 지정 시 `--groups ssaida-beta` 전달 | 실제 코드: [배포 스크립트 33행](scripts/distribute-beta.ps1#L33) | 이미 표준에 부합. 외부 그룹의 존재 확인·생성·변경은 수행하지 않음 |
 | Instagram | `@ssahida.app`, `https://www.instagram.com/ssahida.app/` | 실제 링크: [사이트 소스 9행](sites/ssaida-pilot/app/page.tsx#L9). 안내 원고: [모집 문서 108행](docs/marketing/recruitment-copy.md#L108) | 기존 문의 계정으로 연결되는 주소를 보존 |
 | 문의 이메일 | `ssahida.app@gmail.com` | 실제 로컬 초안: [삭제 안내 소스 9행](sites/ssaida-pilot/app/account-deletion/page.tsx#L9). 사용자 제공 주소 기록: [운영 계획 87행](docs/marketing/launch-paid-20-daily-plan.md#L87) | 기존 문의·삭제 요청 연락처를 보존. 실제 수신 여부와 초안의 원격 반영 여부는 확인하지 않음 |
@@ -273,8 +281,9 @@ Step 4.1 선언 수정은 원격 적용 전이었기 때문에 허용한 예외�
 삭제 요청은 자동 만료되지 않으며 장애 후에도 재시도합니다. PIN 재설정은 72시간 대기와
 이후 7일 실행 기한을 유지하고, 현재 PIN 확인·변경 시 대기 중인 재설정 요청을 취소합니다.
 
-최종 정책, 데이터 보관 범위, 서버 계약과 배포·점검 절차는
-[계정 삭제 정책](docs/account-deletion-policy.md)을 따릅니다.
+위 14일 설명은 기존 구현 상태입니다. 최신 목표는 [제품 결정](docs/product-decisions.md)의
+이메일 인증·최종 동의 후 즉시 실행이며 DEV-03은 미완료입니다. 기존 데이터 보관·서버 계약·운영 이력은
+[계정 삭제 정책](docs/account-deletion-policy.md)에 보존합니다.
 2026-10-18 운영 DB·Edge Function·매시간 자동 삭제 및 정리 예약을 적용했습니다.
 검증 범위와 출시 전 별도 확인 사항은 [운영 배포 기록](docs/production-db-deployment.md)에 있습니다.
 

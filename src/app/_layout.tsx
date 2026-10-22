@@ -10,6 +10,7 @@ import { useAuth } from '@/features/auth/hooks/use-auth';
 import { LoadingScreen } from '@/features/auth/screens/loading-screen';
 import { NotificationRouting } from '@/features/notifications/notification-routing';
 import { AppProviders } from '@/providers/app-providers';
+import { ScreenMessage } from '@/shared/components/screen-message';
 import { useAppModeStore } from '@/store/app-mode.store';
 
 const navigationTheme = {
@@ -28,7 +29,7 @@ void SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
   const mode = useAppModeStore((state) => state.mode);
-  const { isLoading, isAuthenticated, profile, session } = useAuth();
+  const { isLoading, isAuthenticated, profile, session, errorMessage, refreshProfile } = useAuth();
   const needsOnboarding = isAuthenticated && profile?.onboarding_completed !== true;
 
   useEffect(() => {
@@ -39,6 +40,17 @@ function RootNavigator() {
 
   if (isLoading) {
     return <LoadingScreen />;
+  }
+
+  // A failed lookup is not evidence that an existing account needs setup.
+  if (isAuthenticated && errorMessage) {
+    return (
+      <ScreenMessage
+        message={errorMessage}
+        actionLabel="다시 시도"
+        onAction={() => void refreshProfile()}
+      />
+    );
   }
 
   return (

@@ -5,10 +5,12 @@ import ts from 'typescript';
 
 const deferred = () => {
   let resolve;
-  const promise = new Promise((done) => {
+  let reject;
+  const promise = new Promise((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 };
 const source = ts.transpileModule(
   readFileSync(
@@ -278,6 +280,87 @@ for (const lateError of [null, new Error('old request failed')]) {
   signedOut(h);
   h.unmount();
 }
+
+// Lookup failures are recoverable without changing identity or writing onboarding data.
+for (const failure of ['response', 'rejection']) {
+  const h = harness();
+  h.emit('INITIAL_SESSION', session('existing-parent'));
+  h.flushTimers();
+  const request = h.profiles.at(-1);
+  if (failure === 'response') request.resolve({ data: null, error: new Error('private detail') });
+  else request.reject(new Error('private detail'));
+  await settle();
+  assert.equal(h.value.isLoading, false, 'failure must release the loading screen');
+  assert.equal(h.value.isAuthenticated, true, 'network failure must preserve the session');
+  assert.equal(h.value.profile, null);
+  assert.ok(h.value.errorMessage);
+  assert.ok(!h.value.errorMessage.includes('private detail'));
+  const retry = h.value.refreshProfile();
+  assert.equal(h.value.isLoading, true);
+  assert.equal(h.value.errorMessage, null);
+  assert.equal(h.profiles.at(-1).userId, 'existing-parent');
+  h.profiles.at(-1).resolve({ data: profile('existing-parent'), error: null });
+  await retry;
+  assert.equal(h.value.profile.onboarding_completed, true);
+  assert.equal(h.value.isLoading, false);
+  assert.equal(h.value.errorMessage, null);
+  h.unmount();
+}
+// A newer retry owns loading/error state even if an older failed request finishes later.
+{
+  const h = harness();
+  h.emit('INITIAL_SESSION', session('parent-a'));
+  h.flushTimers();
+  const old = h.profiles.at(-1);
+  const retry = h.value.refreshProfile();
+  old.reject(new Error('stale failure'));
+  await settle();
+  assert.equal(h.value.isLoading, true);
+  assert.equal(h.value.errorMessage, null);
+  h.profiles.at(-1).resolve({ data: profile('parent-a'), error: null });
+  await retry;
+  assert.equal(h.value.profile.auth_user_id, 'parent-a');
+  assert.equal(h.value.isLoading, false);
+  h.unmount();
+}
+// A rejected request after logout, account switch, or unmount cannot publish stale state.
+for (const transition of ['logout', 'switch', 'unmount']) {
+  const h = harness();
+  h.emit('INITIAL_SESSION', session('parent-a'));
+  h.flushTimers();
+  const old = h.profiles.at(-1);
+  if (transition === 'unmount') h.unmount();
+  else await h.value.signOut();
+  if (transition === 'switch') {
+    h.emit('SIGNED_IN', session('parent-b'));
+    h.flushTimers();
+    h.profiles.at(-1).resolve({ data: profile('parent-b'), error: null });
+    await settle();
+  }
+  old.reject(new Error('stale failure'));
+  await settle();
+  if (transition === 'logout') signedOut(h);
+  if (transition === 'switch') {
+    assert.equal(h.value.profile.auth_user_id, 'parent-b');
+    assert.equal(h.value.errorMessage, null);
+    assert.equal(h.value.isLoading, false);
+  }
+  if (transition !== 'unmount') h.unmount();
+}
+// A successful empty lookup is distinct from failure and remains valid for a new user.
+{
+  const h = harness();
+  h.emit('INITIAL_SESSION', session('new-parent'));
+  h.flushTimers();
+  h.profiles.at(-1).resolve({ data: null, error: null });
+  await settle();
+  assert.equal(h.value.profile, null);
+  assert.equal(h.value.errorMessage, null);
+  assert.equal(h.value.isLoading, false);
+  assert.equal(h.value.isAuthenticated, true);
+  h.unmount();
+}
+
 console.log(
   'PASS auth session: logout wins over stale initialization/profile work; normal restore, refresh and re-login work',
 );

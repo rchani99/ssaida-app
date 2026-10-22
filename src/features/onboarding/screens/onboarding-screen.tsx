@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -32,6 +32,7 @@ export function OnboardingScreen() {
   const [pinConfirmation, setPinConfirmation] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitting = useRef(false);
 
   const goNext = () => {
     setErrorMessage(null);
@@ -40,17 +41,22 @@ export function OnboardingScreen() {
       return;
     }
     if (step === 1 && dailyTargetMinutes === null) {
-      setErrorMessage(customTarget ? '하루 목표 공부시간을 입력해 주세요.' : '하루 목표 공부시간을 선택해 주세요.');
+      setErrorMessage(
+        customTarget
+          ? '하루 목표 공부시간을 입력해 주세요.'
+          : '하루 목표 공부시간을 선택해 주세요.',
+      );
       return;
     }
     if (step === 1 && (dailyTargetMinutes! < 10 || dailyTargetMinutes! > 240)) {
       setErrorMessage('하루 목표는 10~240분 사이로 입력해 주세요.');
       return;
     }
-    setStep((current) => Math.min(current + 1, 2));
+    setStep(Math.min(step + 1, 2));
   };
 
   const submit = async () => {
+    if (submitting.current) return;
     setErrorMessage(null);
     if (!PIN_PATTERN.test(pin)) {
       setErrorMessage('부모 PIN은 숫자 4자리로 입력해 주세요.');
@@ -62,6 +68,7 @@ export function OnboardingScreen() {
     }
     if (dailyTargetMinutes === null) return;
 
+    submitting.current = true;
     setIsSubmitting(true);
     try {
       await completeOnboarding({ childName, dailyTargetMinutes, parentPin: pin });
@@ -70,6 +77,7 @@ export function OnboardingScreen() {
     } catch {
       setErrorMessage('온보딩 정보를 저장하지 못했습니다. 다시 시도해 주세요.');
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -90,6 +98,7 @@ export function OnboardingScreen() {
           <View style={styles.content}>
             {step === 0 && (
               <TextInput
+                editable={!isSubmitting}
                 autoFocus
                 maxLength={20}
                 onChangeText={setChildName}
@@ -132,12 +141,15 @@ export function OnboardingScreen() {
                   }}
                   style={[styles.option, customTarget && styles.optionSelected]}
                 >
-                  <Text style={[styles.optionText, customTarget && styles.optionTextSelected]}>직접 입력</Text>
+                  <Text style={[styles.optionText, customTarget && styles.optionTextSelected]}>
+                    직접 입력
+                  </Text>
                 </Pressable>
                 {customTarget && (
                   <View style={styles.field}>
                     <Text style={styles.label}>하루 목표 공부시간 (분)</Text>
                     <TextInput
+                      editable={!isSubmitting}
                       accessibilityLabel="하루 목표 공부시간, 10~240분"
                       keyboardType="number-pad"
                       maxLength={3}
@@ -163,6 +175,7 @@ export function OnboardingScreen() {
                 <View style={styles.field}>
                   <Text style={styles.label}>PIN 4자리</Text>
                   <TextInput
+                    editable={!isSubmitting}
                     keyboardType="number-pad"
                     maxLength={4}
                     onChangeText={(value) => setPin(value.replace(/\D/g, ''))}
@@ -174,6 +187,7 @@ export function OnboardingScreen() {
                 <View style={styles.field}>
                   <Text style={styles.label}>PIN 재입력</Text>
                   <TextInput
+                    editable={!isSubmitting}
                     keyboardType="number-pad"
                     maxLength={4}
                     onChangeText={(value) => setPinConfirmation(value.replace(/\D/g, ''))}
@@ -185,7 +199,11 @@ export function OnboardingScreen() {
               </View>
             )}
 
-            {errorMessage && <Text accessibilityRole="alert" style={styles.error}>{errorMessage}</Text>}
+            {errorMessage && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                {errorMessage}
+              </Text>
+            )}
           </View>
 
           <View style={styles.footer}>
@@ -286,7 +304,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.button,
   },
-  backButtonText: { color: colors.textSecondary, fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  backButtonText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   primaryButton: {
     flex: 2,
     minWidth: 0,

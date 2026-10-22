@@ -1,0 +1,238 @@
+diff --git a/scripts/notification-routing-lifecycle-regression.mjs b/scripts/notification-routing-lifecycle-regression.mjs
+new file mode 100644
+index 0000000..6c2034c
+--- /dev/null
++++ b/scripts/notification-routing-lifecycle-regression.mjs
+@@ -0,0 +1,232 @@
++// Executes the production routing component/effect and tapDestination with hook inputs.
++// This models dependency changes and committed effects, not React Native or OS delivery.
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++
++import ts from 'typescript';
++
++function load(path, imports = {}) {
++  const code = ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), {
++    compilerOptions: { module: ts.ModuleKind.CommonJS },
++  }).outputText;
++  const module = { exports: {} };
++  new Function('require', 'module', 'exports', code)(
++    (id) => {
++      assert.ok(id in imports, `Unexpected import: ${id}`);
++      return imports[id];
++    },
++    module,
++    module.exports,
++  );
++  return module.exports;
++}
++
++const planner = load('src/features/notifications/planner.ts', {
++  '@/features/notifications/types': load('src/features/notifications/types.ts'),
++});
++const session = (id = 'parent') => ({ user: { id } });
++const target = (overrides = {}) => ({
++  userId: 'parent',
++  childId: 'child',
++  destination: 'parent',
++  ...overrides,
++});
++const parentEvents = [
++  ['clear'],
++  ['mode', 'child'],
++  ['pin', 'child'],
++  ['route', '/child/today', 'child'],
++];
++const childEvents = [['clear'], ['mode', 'child'], ['route', '/child/today', 'child']];
++
++function fixture(overrides = {}) {
++  const state = {
++    tap: target(),
++    navigation: { key: 'ready' },
++    isLoading: false,
++    session: session(),
++    child: { id: 'child' },
++    mode: 'parent',
++    ...overrides,
++  };
++  const events = [];
++  const slots = [];
++  let cursor = 0;
++  let effects = [];
++  let dirty = false;
++  const clearTap = () => {
++    events.push(['clear']);
++    if (state.tap !== null) dirty = true;
++    state.tap = null;
++  };
++  const requestGate = () => events.push(['pin', state.mode]);
++  const router = { replace: (path) => events.push(['route', path, state.mode]) };
++  const { NotificationRouting } = load('src/features/notifications/notification-routing.tsx', {
++    'expo-router': {
++      useRootNavigationState: () => state.navigation,
++      useRouter: () => router,
++    },
++    react: {
++      useEffect(callback, deps) {
++        const index = cursor++;
++        const previous = slots[index];
++        const same =
++          previous?.deps &&
++          deps &&
++          previous.deps.length === deps.length &&
++          deps.every((value, i) => Object.is(value, previous.deps[i]));
++        if (!same) {
++          slots[index] = { deps };
++          effects.push(() => {
++            previous?.cleanup?.();
++            slots[index].cleanup = callback();
++          });
++        }
++      },
++    },
++    '@/features/auth/hooks/use-auth': {
++      useAuth: () => ({ session: state.session, isLoading: state.isLoading }),
++    },
++    '@/features/learning/hooks/use-learning': { useCurrentChild: () => ({ data: state.child }) },
++    '@/features/notifications/notification-context': {
++      useNotifications: () => ({ tap: state.tap, clearTap, requestGate }),
++    },
++    '@/features/notifications/planner': planner,
++    '@/store/app-mode.store': {
++      useAppModeStore: {
++        getState: () => ({
++          setMode: (mode) => {
++            events.push(['mode', mode]);
++            state.mode = mode;
++          },
++        }),
++      },
++    },
++  });
++  function render(patch = {}) {
++    Object.assign(state, patch);
++    let commits = 0;
++    do {
++      assert.ok(++commits <= 10, 'Routing must settle without a render loop');
++      dirty = false;
++      cursor = 0;
++      effects = [];
++      assert.equal(NotificationRouting(), null);
++      for (const effect of effects) effect();
++    } while (dirty);
++  }
++  return { state, events, render };
++}
++
++function assertWaiting(test, tap, label) {
++  assert.deepEqual(test.events, [], `${label}: no clear, mode change, PIN or route`);
++  assert.equal(test.state.tap, tap, `${label}: retain pending notification`);
++  assert.equal(test.state.mode, 'parent', `${label}: mode unchanged while waiting`);
++}
++
++function assertConsumed(test, expected, label) {
++  assert.deepEqual(test.events, expected, label);
++  assert.equal(test.state.tap, null, `${label}: consumed`);
++  // Both a stable rerender and unrelated, identity-changing updates must not replay it.
++  test.render();
++  test.render({ navigation: { key: 'next' }, session: session(), child: { id: 'child' } });
++  assert.deepEqual(test.events, expected, `${label}: consumed tap must not replay`);
++}
++
++const empty = fixture({ tap: null });
++empty.render();
++assert.deepEqual(empty.events, [], 'No notification is a no-op');
++empty.render({ tap: target() });
++assertConsumed(empty, parentEvents, 'A new notification after initial empty render is handled');
++console.log('PASS notification arrival and consumed-tap rerenders');
++
++for (const [name, initial, ready] of [
++  ['navigation undefined', { navigation: undefined }, { navigation: { key: 'ready' } }],
++  ['navigation without key', { navigation: {} }, { navigation: { key: 'ready' } }],
++  ['auth loading', { isLoading: true }, { isLoading: false }],
++  ['child undefined', { child: undefined }, { child: { id: 'child' } }],
++  ['child null', { child: null }, { child: { id: 'child' } }],
++]) {
++  const test = fixture(initial);
++  const tap = test.state.tap;
++  test.render();
++  test.render();
++  assertWaiting(test, tap, name);
++  test.render(ready);
++  assertConsumed(test, parentEvents, `${name} resolves`);
++}
++const startup = fixture({
++  navigation: undefined,
++  isLoading: true,
++  session: null,
++  child: undefined,
++});
++const startupTap = startup.state.tap;
++startup.render();
++assertWaiting(startup, startupTap, 'startup');
++startup.render({ navigation: { key: 'ready' } });
++assertWaiting(startup, startupTap, 'auth still loading');
++startup.render({ isLoading: false, session: session() });
++assertWaiting(startup, startupTap, 'child still loading');
++startup.render({ child: { id: 'child' } });
++assertConsumed(startup, parentEvents, 'all startup dependencies ready');
++console.log('PASS separate and combined navigation/auth/child readiness transitions');
++
++for (const [name, overrides] of [
++  ['signed out, child not loaded', { session: null, child: undefined }],
++  ['different account, child not loaded', { session: session('other'), child: undefined }],
++  ['different child', { child: { id: 'other-child' } }],
++  ['invalid destination', { tap: target({ destination: '/parent/settings' }) }],
++]) {
++  const test = fixture(overrides);
++  test.render();
++  assertConsumed(test, [['clear']], name);
++  assert.equal(test.state.mode, 'parent', `${name}: rejected tap must not change mode`);
++}
++console.log('PASS rejected account/child/destination targets clear without side effects');
++
++for (const [name, waiting, changes] of [
++  [
++    'sign out before navigation ready',
++    { navigation: undefined },
++    [{ session: null }, { navigation: { key: 'ready' } }],
++  ],
++  [
++    'account changes during auth loading',
++    { isLoading: true },
++    [{ session: session('other') }, { isLoading: false }],
++  ],
++  ['sign out while child loads', { child: undefined }, [{ session: null }]],
++  ['account changes while child loads', { child: undefined }, [{ session: session('other') }]],
++  ['different child resolves', { child: undefined }, [{ child: { id: 'other-child' } }]],
++]) {
++  const test = fixture(waiting);
++  const tap = test.state.tap;
++  test.render();
++  assertWaiting(test, tap, name);
++  for (const [index, change] of changes.entries()) {
++    test.render(change);
++    if (index < changes.length - 1) assertWaiting(test, tap, `${name}: still pending`);
++  }
++  assertConsumed(test, [['clear']], name);
++  assert.equal(test.state.mode, 'parent', `${name}: no mode change`);
++  // Returning to the original account/child cannot resurrect the consumed tap.
++  test.render({ session: session(), child: { id: 'child' } });
++  assert.deepEqual(test.events, [['clear']], `${name}: no stale replay after sign-in`);
++}
++console.log('PASS pending taps across sign-out, account switch and child resolution');
++
++for (const mode of ['parent', 'child']) {
++  for (const destination of ['parent', 'child']) {
++    const test = fixture({ mode, tap: target({ destination }) });
++    test.render();
++    assertConsumed(
++      test,
++      destination === 'parent' ? parentEvents : childEvents,
++      `${destination} notification from ${mode} mode`,
++    );
++    assert.equal(test.state.mode, 'child');
++  }
++}
++console.log('PASS parent access revoked before PIN and routing; child targets never request PIN');
++console.log('Notification routing lifecycle regression passed (local mocked hooks only).');

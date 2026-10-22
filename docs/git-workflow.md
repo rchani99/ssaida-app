@@ -64,3 +64,13 @@ PR 본문 초안:
 >
 > 기반 브랜치는 codex/firebase-deployment이며 master 병합은 별도입니다.
 > DB/API·운영 정책 변경은 없습니다. 배포 태그는 후속 문서가 아닌 정확한 빌드 소스에 고정합니다.
+
+## 2026-10-22 GitHub 반영 결과
+
+- 사용자 명시적 승인 후 브랜치와 태그를 atomic push했고 원격 ref를 재조회했다.
+- 최초 게시 브랜치 SHA: `b1196504c0e48aed0a3c4ba23dd6c2bb012b706e`.
+- `android-beta-v1.0.0-5` annotated tag의 대상은 `a45721a51e56ab04fbd1fa951af6b6b958558a98`로 확인했다.
+- [Draft PR #1](https://github.com/rchani99/ssaida-app/pull/1):
+  `codex/dev02-onboarding` → `codex/firebase-deployment`, 2026-10-22 21:29 KST 생성.
+- 이 결과 기록은 후속 문서 커밋으로 추가한다. 배포 태그는 이동하지 않는다.
+- 기본 브랜치 병합과 추가 배포는 수행하지 않았다. DEV-02 잔여 기기 검증은 REVIEW로 유지한다.

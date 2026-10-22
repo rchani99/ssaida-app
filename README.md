@@ -28,9 +28,10 @@ DEV-02 초기 설정 개선의 구현·검증·독립 검수에 착수했습니�
 | `supabase`, `scripts` | 로컬 프로젝트·DB 컨테이너·cron 작업·검증 코드의 `ssaida` 유지. 개발 실행 스크립트는 안내 문구만 `Ssaida`로 정리 |
 | `scripts/distribute-beta.ps1`, `docs/beta-distribution.md` | Firebase 그룹 alias는 이미 `ssaida-beta`로 일치. 실제 외부 그룹 생성·변경은 수행하지 않음 |
 | `docs/build-environments.md`, `docs/production-db-deployment.md`, `docs/beta-distribution.md` | 기존 서비스 이름·빌드 URL을 기록한 `ssahida`는 유지 |
-| `docs/marketing`, `sites/ssaida-pilot` | `ssahida`는 기존 연락처·계정·게시 URL에 사용하므로 유지. `ssaida` 로컬 경로와 산출물 이름도 유지 |
+| `docs/marketing`, `sites/ssaida-pilot` | 2026-10-22 사용자 보고에 따라 문서의 Instagram 계정·링크는 `ssaida.app`으로 갱신. 기존 이메일·게시 사이트 URL과 `ssaida` 로컬 경로·산출물 이름은 유지. 사이트 소스·원격 반영은 별도 확인 필요 |
 
-다음은 **유지할 기존 식별자·설정과 그 출처**입니다. `ssahida`가 남은 외부 이름은 표준의
+다음은 **현재 식별자·설정과 그 출처**입니다. Instagram은 2026-10-22 사용자가 `ssaida.app`으로
+변경했다고 알려 문서에 반영했습니다. 나머지 `ssahida`가 남은 외부 이름은 표준의
 예외이며, 변경하려면 별도 서비스 이전 및 호환성 검토가 필요합니다.
 출처는 로컬 설정·소스와 문서 기록을 구분했습니다. 이번 조사에서 외부 콘솔의 현재 상태,
 실제 환경변수 값, 이메일 수신 여부를 재확인한 것은 아닙니다. 줄 번호는 조사 시점 기준입니다.
@@ -46,7 +47,7 @@ DEV-02 초기 설정 개선의 구현·검증·독립 검수에 착수했습니�
 | DB 작업 / 로컬 저장 | `ssaida-account-deletion-purge`, `ssaida-account-action-cleanup`, 기존 `ssaida` 저장 키·알림 ID | 작업 정의: [삭제 cron 19행](supabase/snippets/account-deletion-schedule.sql#L19), [정리 cron 28행](supabase/snippets/account-deletion-schedule.sql#L28). 저장·알림 코드: [계정 복구](src/features/auth/services/account-recovery.ts), [알림 저장](src/features/notifications/storage.ts), [알림 ID](src/features/notifications/planner.ts) | 기존 작업 이름과 저장 데이터·알림의 연속성을 유지 |
 | Firebase App ID / 프로젝트 ID | `FIREBASE_APP_ID`, `FIREBASE_PROJECT_ID`를 검증해 CLI에 전달. 후속 배포 기록의 프로젝트는 `ssaida-732f2` | 실제 주입: [배포 스크립트](scripts/distribute-beta.ps1). 앱/그룹 조회 및 업로드: [후속 배포 기록](docs/beta-distribution.md#후속-실기기-검수-및-pin-수정) | 최초 `adu-app-f039d` 조회와 후속 확인을 구분. 이번 문서 점검은 원격 App ID 재조회가 아니며 기존 연결값을 변경하지 않음 |
 | Firebase 테스터 그룹 | `-Distribute` 지정 시 `--groups ssaida-beta` 전달 | 실제 코드: [배포 스크립트 33행](scripts/distribute-beta.ps1#L33) | 이미 표준에 부합. 외부 그룹의 존재 확인·생성·변경은 수행하지 않음 |
-| Instagram | `@ssahida.app`, `https://www.instagram.com/ssahida.app/` | 실제 링크: [사이트 소스 9행](sites/ssaida-pilot/app/page.tsx#L9). 안내 원고: [모집 문서 108행](docs/marketing/recruitment-copy.md#L108) | 기존 문의 계정으로 연결되는 주소를 보존 |
+| Instagram | `@ssaida.app`, `https://www.instagram.com/ssaida.app/` | 2026-10-22 사용자 변경 완료 보고. 현재 안내: [마케팅 README](docs/marketing/README.md), [모집 원고](docs/marketing/recruitment-copy.md) | 사용자가 변경한 현재 계정으로 문의 안내를 갱신. 사이트 소스·원격 배포·기존 이미지/영상의 반영 여부는 이번 문서 수정으로 확인되지 않음 |
 | 문의 이메일 | `ssahida.app@gmail.com` | 실제 로컬 초안: [삭제 안내 소스 9행](sites/ssaida-pilot/app/account-deletion/page.tsx#L9). 사용자 제공 주소 기록: [운영 계획 87행](docs/marketing/launch-paid-20-daily-plan.md#L87) | 기존 문의·삭제 요청 연락처를 보존. 실제 수신 여부와 초안의 원격 반영 여부는 확인하지 않음 |
 | 기존 게시 사이트 | `https://ssahida-pilot.famous-orbit-7383.chatgpt.site` | 비공개 배포 주소 기록: [마케팅 README 23행](docs/marketing/README.md#L23) | 기존 게시 주소와 참조 링크를 보존 |
 

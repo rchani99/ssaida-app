@@ -1,5 +1,9 @@
 # Ssaida 개발 백로그
 
+> 2026-10-23 소스 통합 검증: DEV-02 → Firebase [PR #1](https://github.com/rchani99/ssaida-app/pull/1) 병합 완료.
+> master 통합은 [PR #2](https://github.com/rchani99/ssaida-app/pull/2)에서 추적한다. 타입·린트·로컬 회귀 48개와 독립 집중 회귀 4개 PASS.
+> 소스 병합과 운영 완료는 구분하며 DEV-01/02의 REVIEW 및 남은 실기기·테스터 검증은 유지한다. [검증 기록](releases/dev02-firebase-integration-20261023.md).
+
 기준일: 2026-10-22. 원본 제목·우선순위는 사용자가 직접 제공한 최종 DEV-01~27 목록이다.
 목표는 [제품 결정](product-decisions.md), 구현 증거는 [현황](project-status.md)을 따른다.
 아래 세부 완료 기준과 의존성은 확인한 구현을 바탕으로 정리한 작업 기준이며, 미결정 제품 정책을

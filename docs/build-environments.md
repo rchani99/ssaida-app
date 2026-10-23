@@ -37,13 +37,16 @@ production 전용 값이 없으면 DEV 변수로 fallback하지 않습니다.
 
 ## EAS profiles / 버전
 
-| profile     | EAS environment | Android 결과                         |
-| ----------- | --------------- | ------------------------------------ |
-| development | development     | `:app:assembleDebug` APK, Metro 필요 |
-| production  | production      | store용 AAB, DEV 로그인 false        |
+| profile     | EAS environment | Android 결과                                    |
+| ----------- | --------------- | ----------------------------------------------- |
+| development | development     | `:app:assembleDebug` APK, Metro 필요            |
+| production  | production      | store용 AAB, DEV 로그인 false                   |
+| beta        | production      | Firebase 체험단용 Release APK, DEV 로그인 false |
 
 development는 기존 debug/Metro 흐름이며 `expo-dev-client`를 요구하지 않습니다.
-preview는 추가하지 않았습니다. DEV DB를 쓰는 release APK는 허용하지 않습니다.
+preview는 추가하지 않았습니다. beta는 production을 상속하며 developmentClient=false입니다.
+`app.config.js`는 beta 프로필을 production 환경에만 대응시킵니다.
+DEV DB를 쓰는 release APK는 허용하지 않습니다.
 iOS development는 simulator Debug이며 실제 iOS 출시 검증은 별도입니다.
 
 EAS `appVersionSource: remote`, production `autoIncrement: true`를 사용합니다.
@@ -52,6 +55,9 @@ EAS `appVersionSource: remote`, production `autoIncrement: true`를 사용합니
 package/bundleIdentifier `com.ssaida.app`, scheme `ssaida`는 유지합니다.
 2026-10-16 기존 Expo 프로젝트에 맞춰 slug는 `ssahida-app`, owner는 `ssahidas-team`,
 `extra.eas.projectId`는 `22da5823-40f1-488c-88a7-197639eaae9a`로 연결했습니다.
+영문 브랜드는 `Ssaida`, 신규 코드·식별자는 `ssaida`를 사용합니다. 위 slug·owner·projectId와
+기존 빌드 URL은 배포 연결을 유지하기 위한 예외이므로 이름 통일 목적으로 변경하지 않습니다.
+전체 기준과 유지 목록은 [네이밍 표준](../README.md#네이밍-표준)을 따릅니다.
 표시 이름은 `쌓이다`입니다. 같은 package라 DEV/production 동시 설치가 안 되며
 서명이 다르면 교체 설치도 실패할 수 있습니다.
 
@@ -121,6 +127,10 @@ CLI를 실행해 프로젝트 조회 성공을 확인했습니다. 환경 검사
 `node scripts/environment-regression.mjs`는 합성 공개 값으로 차단 정책, 네트워크 초기화 전
 검사, EAS profiles 및 실제 Expo config loader를 확인합니다. 외부 네트워크/DB는 사용하지 않습니다.
 `pnpm test`에도 포함됩니다. 기존 OAuth callback/DEV 로그인 회귀를 함께 실행합니다.
+
+2026-10-19 Firebase 체험단용 beta 빌드·수동 업로드·사용자 콘솔 설정·검수 절차는
+[Firebase 체험단 배포](beta-distribution.md)에 기록합니다. 계정 삭제 v1과 별도 브랜치이며
+기존 운영 DB/RPC/RLS와 앱 UI는 변경하지 않습니다.
 
 참고: [Expo SDK 57 config](https://docs.expo.dev/versions/v57.0.0/config/app/),
 [EAS 환경 변수](https://docs.expo.dev/eas/environment-variables/),

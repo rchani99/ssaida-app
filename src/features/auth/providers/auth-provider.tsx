@@ -14,6 +14,8 @@ type ClientState =
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const activeUserId = useRef<string | null>(null);
+  const sessionRevision = useRef(0);
+  const profileRequest = useRef(0);
   const [clientState] = useState<ClientState>(() => {
     try {
       return { client: getSupabaseClient(), errorMessage: null };
@@ -31,7 +33,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [profileError, setProfileError] = useState<string | null>(null);
 
   const loadProfile = useCallback(
-    async (currentSession: Session | null) => {
+    async (currentSession: Session | null, revision = sessionRevision.current) => {
+      if (
+        revision !== sessionRevision.current ||
+        (currentSession?.user.id ?? null) !== activeUserId.current
+      )
+        return;
+      const request = ++profileRequest.current;
       if (!clientState.client || !currentSession?.user.id) {
         setProfile(null);
         setProfileLoading(false);
@@ -39,19 +47,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       setProfileLoading(true);
       setProfileError(null);
-      const { data, error } = await clientState.client
-        .from('profiles')
-        .select('*')
-        .eq('auth_user_id', currentSession.user.id)
-        .maybeSingle();
-
-      if (error) {
+      const isCurrent = () =>
+        revision === sessionRevision.current && request === profileRequest.current;
+      try {
+        const { data, error } = await clientState.client
+          .from('profiles')
+          .select('*')
+          .eq('auth_user_id', currentSession.user.id)
+          .maybeSingle();
+        if (!isCurrent()) return;
+        if (error) throw error;
+        setProfile(data);
+      } catch {
+        if (!isCurrent()) return;
         setProfileError('부모 프로필을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
         setProfile(null);
-      } else {
-        setProfile(data);
+      } finally {
+        if (isCurrent()) setProfileLoading(false);
       }
-      setProfileLoading(false);
     },
     [clientState.client],
   );
@@ -61,34 +74,43 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!clientState.client) return;
     let mounted = true;
+    let receivedAuthEvent = false;
+    const lifecycleRevision = sessionRevision;
+    const lifecycleRequest = profileRequest;
     const resetForUser = (nextSession: Session | null) => {
       const nextUserId = nextSession?.user.id ?? null;
       if (activeUserId.current !== nextUserId || nextUserId === null) {
         useAppModeStore.getState().setMode('child');
         queryClient.clear();
         activeUserId.current = nextUserId;
+        setProfile(null);
       }
     };
-    const { data: listener } = clientState.client.auth.onAuthStateChange((_event, nextSession) => {
+    // INITIAL_SESSION already restores persisted auth. A separate getSession()
+    // snapshot can arrive after SIGNED_OUT and incorrectly authenticate again.
+    const { data: listener } = clientState.client.auth.onAuthStateChange((event, nextSession) => {
       if (mounted) {
+        if (event === 'INITIAL_SESSION' && receivedAuthEvent) return;
+        receivedAuthEvent = true;
+        const revision = ++sessionRevision.current;
+        profileRequest.current++;
         resetForUser(nextSession);
         setSession(nextSession);
         setSessionLoading(false);
+        setProfileError(null);
         setProfileLoading(nextSession !== null);
-        setTimeout(() => void loadProfile(nextSession), 0);
-      }
-    });
-    void clientState.client.auth.getSession().then(({ data, error }) => {
-      if (mounted) {
-        resetForUser(error ? null : data.session);
-        setSession(error ? null : data.session);
-        setSessionLoading(false);
-        setProfileLoading(!error && data.session !== null);
-        void loadProfile(error ? null : data.session);
+        if (nextSession) {
+          // Keep Supabase queries outside its synchronous auth callback/lock.
+          setTimeout(() => {
+            if (mounted) void loadProfile(nextSession, revision);
+          }, 0);
+        }
       }
     });
     return () => {
       mounted = false;
+      lifecycleRevision.current++;
+      lifecycleRequest.current++;
       listener.subscription.unsubscribe();
     };
   }, [clientState.client, loadProfile]);

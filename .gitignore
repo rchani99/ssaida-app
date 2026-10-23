@@ -52,3 +52,7 @@ example
 # Local device test captures and fixtures
 /output/
 /device-screen.png
+
+# Firebase CLI local state and diagnostic logs
+/.firebase/
+/firebase-debug*.log

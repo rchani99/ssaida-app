@@ -221,18 +221,28 @@ const routing = loadComponent('src/features/notifications/notification-routing.t
     }),
   },
   '@/features/notifications/planner': {
-    tapDestination: (_tap, _user, _child, value) => (value === 'parent' ? 'parent' : 'pin'),
+    tapDestination: () => 'pin',
   },
-  '@/store/app-mode.store': { useAppModeStore: (select) => select({ mode }) },
+  '@/store/app-mode.store': {
+    useAppModeStore: {
+      getState: () => ({
+        setMode: (value) => {
+          mode = value;
+        },
+      }),
+    },
+  },
 }).NotificationRouting;
 routing();
-assert.equal(route, '/parent-review?tab=pending');
+assert.equal(mode, 'child');
+assert.equal(route, '/child/today');
+assert.equal(requestedPin, 1);
 mode = 'child';
 routing();
 assert.equal(route, '/child/today');
-assert.equal(requestedPin, 1);
+assert.equal(requestedPin, 2);
 console.log(
-  'PASS notification routing: parent detail, child PIN gate, root redirect cannot bypass child mode',
+  'PASS notification routing: parent and child modes require PIN; root redirect cannot bypass child mode',
 );
 assert.match(root, /Stack.Protected guard=\{mode === 'parent'\}[\s\S]*name="parent-review"/);
 assert.match(

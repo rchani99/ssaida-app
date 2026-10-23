@@ -2,11 +2,12 @@ const { validateEnvironment } = require('./src/config/environment-policy');
 
 module.exports = ({ config }) => {
   const profile = process.env.EAS_BUILD_PROFILE;
-  if (profile && !['development', 'production'].includes(profile)) {
+  if (profile && !['development', 'production', 'beta'].includes(profile)) {
     throw new Error('[environment] Unsupported EAS profile.');
   }
   const release =
     profile === 'production' ||
+    profile === 'beta' ||
     (profile !== 'development' && process.env.NODE_ENV === 'production') ||
     process.argv.some((arg) => /^(release|.*Release)$/.test(arg));
   const environment = validateEnvironment(
@@ -22,7 +23,8 @@ module.exports = ({ config }) => {
     },
     release,
   );
-  if (profile && environment.environment !== profile)
+  const profileEnvironment = profile === 'beta' ? 'production' : profile;
+  if (profileEnvironment && environment.environment !== profileEnvironment)
     throw new Error('[environment] EAS profile/environment mismatch.');
   return { ...config, extra: { ...config.extra, appEnvironment: environment.environment } };
 };

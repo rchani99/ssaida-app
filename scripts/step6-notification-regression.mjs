@@ -205,7 +205,7 @@ assert.equal(
     'child',
     'parent',
   ),
-  'parent',
+  'pin',
 );
 assert.equal(
   planner.tapDestination(
@@ -225,9 +225,44 @@ assert.equal(
   ),
   null,
 );
-console.log(
-  'PASS H: parent tap requires PIN in child mode; wrong account/arbitrary route rejected',
-);
+// Exercise the routing effect in both modes: lock before prompting/navigating.
+for (const initialMode of ['parent', 'child']) {
+  let mode = initialMode;
+  const events = [];
+  const routing = load('src/features/notifications/notification-routing.tsx', {
+    'expo-router': {
+      useRootNavigationState: () => ({ key: 'ready' }),
+      useRouter: () => ({ replace: (path) => events.push(['route', path, mode]) }),
+    },
+    react: { useEffect: (effect) => effect() },
+    '@/features/auth/hooks/use-auth': {
+      useAuth: () => ({ session: { user: { id: 'parent' } }, isLoading: false }),
+    },
+    '@/features/learning/hooks/use-learning': {
+      useCurrentChild: () => ({ data: { id: 'child' } }),
+    },
+    '@/features/notifications/notification-context': {
+      useNotifications: () => ({
+        tap: { userId: 'parent', childId: 'child', destination: 'parent' },
+        clearTap: () => events.push(['clear']),
+        requestGate: () => events.push(['pin', mode]),
+      }),
+    },
+    '@/features/notifications/planner': planner,
+    '@/store/app-mode.store': {
+      useAppModeStore: {
+        getState: () => ({
+          setMode: (next) => {
+            mode = next;
+          },
+        }),
+      },
+    },
+  });
+  routing.NotificationRouting();
+  assert.deepEqual(events, [['clear'], ['pin', 'child'], ['route', '/child/today', 'child']]);
+}
+console.log('PASS H: parent notifications always lock and request PIN; invalid targets rejected');
 
 snapshot.date = '2026-09-12';
 snapshot.tasks = [task('newdone')];

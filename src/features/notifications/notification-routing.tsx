@@ -11,7 +11,6 @@ export function NotificationRouting() {
   const { tap, clearTap, requestGate } = useNotifications();
   const { session, isLoading } = useAuth();
   const child = useCurrentChild();
-  const mode = useAppModeStore((state) => state.mode);
   const navigation = useRootNavigationState();
   const router = useRouter();
   useEffect(() => {
@@ -21,15 +20,14 @@ export function NotificationRouting() {
       return;
     }
     if (!child.data) return;
-    const destination = tapDestination(tap, session.user.id, child.data.id, mode);
+    const destination = tapDestination(tap, session.user.id, child.data.id);
     clearTap();
     if (!destination) return;
-    if (destination === 'parent') router.replace('/parent-review?tab=pending');
-    else {
-      if (destination === 'pin') requestGate();
-      else useAppModeStore.getState().setMode('child');
-      router.replace('/child/today');
-    }
-  }, [tap, navigation?.key, isLoading, session, child.data, mode, router, clearTap, requestGate]);
+    // Revoke parent access before presenting the existing PIN gate, including
+    // when the notification was opened from an already-active parent screen.
+    useAppModeStore.getState().setMode('child');
+    if (destination === 'pin') requestGate();
+    router.replace('/child/today');
+  }, [tap, navigation?.key, isLoading, session, child.data, router, clearTap, requestGate]);
   return null;
 }

@@ -4,6 +4,15 @@
 > master 통합은 [PR #2](https://github.com/rchani99/ssaida-app/pull/2)에서 추적한다. 타입·린트·로컬 회귀 48개와 독립 집중 회귀 4개 PASS.
 > 소스 병합과 운영 완료는 구분하며 DEV-01/02의 REVIEW 및 남은 실기기·테스터 검증은 유지한다. [검증 기록](releases/dev02-firebase-integration-20261023.md).
 
+> 2026-10-23 후속 실기기: APK5 해시 동일성과 Google 로그인 취소·재시도 확인.
+> 사용자 요청한 별도 테스트 계정 1건의 관리자 삭제·연결 데이터 제거·영수증 익명화를 검증하고,
+> 별도 승인으로 휴대폰 앱 저장공간을 초기화했다. 원래 계정의 서버 데이터는 보존했다.
+> 후속 Google 재로그인으로 새 Auth 계정 생성과 이름·목표·PIN 미입력 차단을 확인했다.
+> 후속 PIN 설정 후 온보딩 저장·테마 선택·부모 진입 및 실제 프로필 통신 실패→재시도 복구를 확인했다.
+> 종료 상태의 실제 예약 알림→정상 PIN→부모 확인 목적지도 확인했고 테스트 알림·기기 권한을 복구했다.
+> 개별 체험단 설치 및 미검증 시나리오는 분리하여 REVIEW를 유지한다.
+> [재개 기록](automation/runs/DEV-02-20261023-device-verification.md). 삭제·초기화는 반복하지 않는다.
+
 기준일: 2026-10-22. 원본 제목·우선순위는 사용자가 직접 제공한 최종 DEV-01~27 목록이다.
 목표는 [제품 결정](product-decisions.md), 구현 증거는 [현황](project-status.md)을 따른다.
 아래 세부 완료 기준과 의존성은 확인한 구현을 바탕으로 정리한 작업 기준이며, 미결정 제품 정책을
@@ -88,13 +97,13 @@ APK 버전별 실기기 결과를 구분한다. 2026-10-22 DEV-01에서 APK 정�
 
 - 과제 ID / 우선순위: DEV-01 / P0
 - 목표: 기존 배포 기반을 재사용해 체험단이 검증된 APK를 설치하고 핵심 흐름을 사용할 수 있게 한다.
-- 현재 상태: **REVIEW**. 2026-10-22 무선 실기기·일반 PIN·지정 학습 완료/부모 확인·성장 반영 부분 검증 완료. 잘못된 PIN 후 아이 홈 유지는 사용자 정정에 따라 정상 차단으로 기록. 알림 정상 PIN 목적지 이동 확인과 나머지 필수 검증·실행 승인 대기.
+- 현재 상태: **REVIEW**. 2026-10-22 지정 학습 완료/부모 확인·성장 반영 부분 검증에 이어, 2026-10-23 APK5의 신규 OAuth·온보딩·통신 복구·종료 후 실제 알림의 정상 PIN 목적지를 확인했다. 개별 체험단 설치와 아래 미검증 시나리오는 남아 있다.
 - 구현 여부: 기반 구현 있음. APK (4)의 원격/로컬 해시 일치 확인. 2026-10-22 사용자가 **1.0.0 (4) 체험단 배포 완료**를 확인했다. 그룹 0명은 이전 조회 기록이며 현재 수신 인원·개별 설치는 미확인. 남은 실기기 검증 때문에 REVIEW 유지.
 - 완료 기준: 동일 APK의 서명·버전·환경을 식별하고 설치/Google 로그인/가족·공부 완료/부모 확인/알림 PIN 실기기 결과를 기록한다. 승인된 대상의 배포·수락·설치 결과와 재배포 절차까지 확인한다. 미완료 항목이 있으면 DONE 금지.
 - 선행 과제: 없음. 현재 최우선. APK (3)의 결과를 (4)로 전이하지 않음.
 - 관련 코드 및 문서: `eas.json`, `scripts/build-beta.mjs`, `scripts/distribute-beta.ps1`, [배포 기록](beta-distribution.md), [빌드 환경](build-environments.md)
 - 승인 필요 여부: 읽기 전용 현황 조회·로컬 검증·준비 승인됨. Firebase 설정·실제 업로드·배포·초대·운영 작업은 준비 후 별도 승인.
-- 결과 / 남은 조건: [검증·승인 준비안](dev-01-release-readiness.md), [사전 확인](automation/runs/DEV-01-20261022-firebase-preflight.md), [무선 실기기 결과](automation/runs/DEV-01-20261022-wireless-device.md). 지정 항목 확인 후 성장 포인트 2→3 및 재시작 유지. 사용자 정정으로 잘못된 PIN 차단은 정상이며, 알림 정상 PIN 목적지 이동은 미확인. 사용자 지정 항목의 실제 앱 데이터만 정상 UI로 갱신했다. 필수 실기기·승인 대상 배포 결과 없이 DONE 금지.
+- 결과 / 남은 조건: [기존 무선 실기기 결과](automation/runs/DEV-01-20261022-wireless-device.md)의 지정 학습·성장 포인트 결과와 [APK5 후속 검증](automation/runs/DEV-02-20261023-device-verification.md)을 버전별로 구분한다. 후속 검증에서 알림 정상 PIN 목적지의 미확인을 해소했다. APK5의 잘못된 PIN·취소·부모 모드 알림 진입 및 개별 체험단 수신·설치는 미확인이다. 필수 검증 없이 DONE 금지.
 
 ### DEV-02 — 체험단 환경 및 초기 설정 개선
 
@@ -105,8 +114,8 @@ APK 버전별 실기기 결과를 구분한다. 2026-10-22 DEV-01에서 APK 정�
 - 완료 기준: 재현한 초기 진입 문제와 대상 APK/기기를 기록하고 수정·최소 회귀·설치 안내를 맞춘다. 실패/재시도와 기존 계정 데이터 보존을 확인한다. 기기별 미확인은 별도 표시.
 - 선행 과제: DEV-01의 대상 배포 환경. Family Link 사례의 정확한 실패 단계 확인.
 - 관련 코드 및 문서: `src/features/onboarding/services/complete-onboarding.ts`, `src/features/onboarding/screens/onboarding-screen.tsx`, `src/features/auth/`, [배포 기록](beta-distribution.md)
-- 승인 필요 여부: DEV-02 구현·검수, APK5 EAS 빌드·검증 및 후속 Firebase 업로드·기존 체험단 업데이트 배포까지 사용자 승인받아 수행. 무관한 새 대상 초대·외부 인증 설정·운영 데이터 변경은 미승인.
-- 결과 / 남은 조건: [구현 기록](automation/runs/DEV-02-20261022-onboarding-hardening.md), [APK5 빌드·검증 결과](automation/runs/DEV-02-20261022-beta-build.md). `codex/dev02-onboarding` / `a45721a` 보존. APK4→5 업데이트 후 기존 세션·화면 기록·3포인트·재시작·일반 정상 PIN 진입 PASS. 신규 계정 초기 설정과 실제 통신 실패 복구의 실기기 검증, 신규 OAuth·알림·Family Link 전체 호환성은 미확인.
+- 승인 필요 여부: DEV-02 구현·검수, APK5 EAS 빌드·검증 및 후속 Firebase 업로드·기존 체험단 업데이트 배포까지 사용자 승인받아 수행. 2026-10-23 지정한 테스트 계정 1건 삭제·재가입·앱 초기화는 별도 사용자 승인으로 수행했다. 그 밖의 운영 데이터 변경·무관한 새 대상 초대·외부 인증 설정은 미승인.
+- 결과 / 남은 조건: [구현 기록](automation/runs/DEV-02-20261022-onboarding-hardening.md), [APK5 빌드·검증 결과](automation/runs/DEV-02-20261022-beta-build.md). `a45721a`의 APK4→5 업데이트 후 기존 세션·기록·3포인트 유지 검증에 이어 [APK5 후속 검증](automation/runs/DEV-02-20261023-device-verification.md)에서 신규 OAuth·온보딩 저장·실제 통신 실패 복구·종료 후 알림 정상 PIN 목적지 PASS. 온보딩 동시 제출 경합, 나머지 알림 시나리오, Family Link 사례와 개별 체험단 설치는 별도 미확인.
 
 - 2026-10-22 후속 준비: 기존 운영용 공개 env 파일을 재사용한 beta 설정 check와 독립 재실행 PASS. 새 env 생성 불필요. [사전 검사 기록](automation/runs/DEV-02-20261022-beta-config-preflight.md). 원격 설정 일치·새 APK·실기기 검증 미확인이므로 REVIEW 유지.
 

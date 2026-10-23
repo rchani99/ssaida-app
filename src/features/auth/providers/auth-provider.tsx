@@ -47,20 +47,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       setProfileLoading(true);
       setProfileError(null);
-      const { data, error } = await clientState.client
-        .from('profiles')
-        .select('*')
-        .eq('auth_user_id', currentSession.user.id)
-        .maybeSingle();
-
-      if (revision !== sessionRevision.current || request !== profileRequest.current) return;
-      if (error) {
+      const isCurrent = () =>
+        revision === sessionRevision.current && request === profileRequest.current;
+      try {
+        const { data, error } = await clientState.client
+          .from('profiles')
+          .select('*')
+          .eq('auth_user_id', currentSession.user.id)
+          .maybeSingle();
+        if (!isCurrent()) return;
+        if (error) throw error;
+        setProfile(data);
+      } catch {
+        if (!isCurrent()) return;
         setProfileError('부모 프로필을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
         setProfile(null);
-      } else {
-        setProfile(data);
+      } finally {
+        if (isCurrent()) setProfileLoading(false);
       }
-      setProfileLoading(false);
     },
     [clientState.client],
   );

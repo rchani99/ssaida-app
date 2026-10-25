@@ -144,7 +144,13 @@ export function useStudyItems(childId?: string, includeDeleted = false) {
 
 export function useUpdateStudyItem() {
   const invalidate = useInvalidateLearning();
-  return useMutation({ mutationFn: updateStudyItem, onSuccess: invalidate });
+  return useMutation({
+    mutationFn: updateStudyItem,
+    // Close the saved form without waiting for a slow or failed list refetch.
+    onSuccess: () => {
+      void invalidate().catch(() => {});
+    },
+  });
 }
 export function useChangeStudyItemStatus() {
   const invalidate = useInvalidateLearning();
@@ -213,7 +219,13 @@ export function useCurrentCollectible(childId?: string, themeCode?: string | nul
 
 export function useCreateStudyItem() {
   const invalidate = useInvalidateLearning();
-  return useMutation({ mutationFn: createStudyItem, onSuccess: invalidate });
+  return useMutation({
+    mutationFn: createStudyItem,
+    // Close the saved form without waiting for a slow or failed list refetch.
+    onSuccess: () => {
+      void invalidate().catch(() => {});
+    },
+  });
 }
 
 export function useEnsureDailyPlan() {

@@ -144,7 +144,8 @@ export function StudyManagementScreen() {
 
 function StudyItemActions({ item }: { item: StudyItem }) {
   const change = useChangeStudyItemStatus();
-  const [editing, setEditing] = useState(false);
+  const [editingItem, setEditingItem] = useState<StudyItem | null>(null);
+  const editing = editingItem !== null;
   const [deleting, setDeleting] = useState(false);
   const action = (status: 'ACTIVE' | 'PAUSED' | 'DELETED') => change.mutate({ item, status });
   return (
@@ -152,9 +153,10 @@ function StudyItemActions({ item }: { item: StudyItem }) {
       <View style={styles.itemActions}>
         <Pressable
           accessibilityRole="button"
-          disabled={change.isPending}
+          disabled={change.isPending || editing}
           onPress={() => {
-            setEditing(!editing);
+            // Keep the version the user started editing for optimistic concurrency.
+            setEditingItem(item);
             setDeleting(false);
           }}
           style={styles.itemActionButton}
@@ -190,12 +192,12 @@ function StudyItemActions({ item }: { item: StudyItem }) {
           <Text style={[styles.itemActionText, styles.deleteActionText]}>삭제</Text>
         </Pressable>
       </View>
-      {editing && (
+      {editingItem && (
         <StudyItemForm
-          key={item.updated_at}
-          childId={item.child_id}
-          item={item}
-          onClose={() => setEditing(false)}
+          key={editingItem.id}
+          childId={editingItem.child_id}
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
         />
       )}
       {deleting && (
@@ -291,6 +293,31 @@ function StudyItemForm({
     }, 2000);
   };
 
+  const closeForm = () => {
+    hideRestHint();
+    if (item) {
+      onClose?.();
+      return;
+    }
+    setExpanded(false);
+    setItemType('WORKBOOK');
+    setName('');
+    setSubject(null);
+    setMinutes('20');
+    setWeekdays([]);
+    setApplyFromToday(false);
+    setPagesPerSession('5');
+    setLastPage('100');
+    setNextPage('1');
+    setMessage(null);
+  };
+
+  const cancel = () => {
+    // A press in the same render as submit must not unmount the saving form.
+    if (busy || submitting.current) return;
+    closeForm();
+  };
+
   const submit = () => {
     if (busy || submitting.current) return;
     setMessage(null);
@@ -322,6 +349,7 @@ function StudyItemForm({
       return setMessage('문제집 페이지 정보를 확인해 주세요.');
     }
 
+    submitting.current = true;
     if (item) {
       updateItem.mutate(
         {
@@ -338,13 +366,15 @@ function StudyItemForm({
           },
         },
         {
-          onSuccess: onClose,
+          onSuccess: closeForm,
+          onSettled: () => {
+            submitting.current = false;
+          },
           onError: () => setMessage('저장하지 못했어요. 목록을 다시 불러온 뒤 확인해 주세요.'),
         },
       );
       return;
     }
-    submitting.current = true;
     createItem.mutate(
       {
         childId,
@@ -360,12 +390,7 @@ function StudyItemForm({
       },
       {
         onSuccess: () => {
-          hideRestHint();
-          setName('');
-          setNextPage('1');
-          setWeekdays([]);
-          setApplyFromToday(false);
-          setExpanded(false);
+          closeForm();
           setMessage('공부를 등록했어요.');
         },
         onError: () => setMessage('공부를 등록하지 못했어요. 입력 내용을 확인해 주세요.'),
@@ -378,20 +403,19 @@ function StudyItemForm({
 
   return (
     <>
-      {!item && (
+      {!item && !expanded && (
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ expanded, disabled: busy }}
           disabled={busy}
           onPress={() => {
             hideRestHint();
-            setExpanded((current) => !current);
+            setMessage(null);
+            setExpanded(true);
           }}
           style={styles.registrationToggle}
         >
-          <Text style={styles.registrationToggleText}>
-            {expanded ? '등록 닫기' : '+ 공부 등록'}
-          </Text>
+          <Text style={styles.registrationToggleText}>+ 공부 등록</Text>
         </Pressable>
       )}
       {(item || expanded) && (
@@ -580,18 +604,31 @@ function StudyItemForm({
                 </Text>
               </View>
             )}
-            <Pressable
-              accessibilityRole="button"
-              disabled={busy}
-              onPress={submit}
-              style={styles.primaryButton}
-            >
-              {busy ? (
-                <ActivityIndicator color={colors.card} />
-              ) : (
-                <Text style={styles.primaryButtonText}>{item ? '변경 저장' : '등록하기'}</Text>
-              )}
-            </Pressable>
+            <View style={styles.formActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={item ? '저장' : '등록'}
+                accessibilityState={{ disabled: busy, busy }}
+                disabled={busy}
+                onPress={submit}
+                style={[styles.primaryButton, styles.formActionButton]}
+              >
+                {busy ? (
+                  <ActivityIndicator color={colors.card} />
+                ) : (
+                  <Text style={styles.primaryButtonText}>{item ? '저장' : '등록'}</Text>
+                )}
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy }}
+                disabled={busy}
+                onPress={cancel}
+                style={[styles.secondaryButton, styles.formActionButton]}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </Pressable>
+            </View>
           </View>
         </Section>
       )}
@@ -784,6 +821,9 @@ const styles = StyleSheet.create({
   restHintArrowFirst: { left: 16 },
   restHintArrowLast: { right: 16 },
   pageInputs: { gap: t.spacing[12] },
+  formActions: { flexDirection: 'row', gap: spacing.sm },
+  formActionButton: { flex: 1 },
+  cancelButtonText: { color: colors.primaryDark, fontSize: 16, fontWeight: '700' },
   primaryButton: {
     minHeight: t.icon.touchMin,
     paddingVertical: t.spacing[8],

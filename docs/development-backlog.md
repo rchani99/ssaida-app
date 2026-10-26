@@ -1,5 +1,7 @@
 # Ssaida 개발 백로그
 
+> 2026-10-26 DESIGN-01-APP: 사용자의 개발 채팅 직접 승인으로 학습 시간 기본값 UI를 적용했다. 기존 저장/검증/계획 정책을 보존하고 2열 프리셋·전체 폭 직접 입력·선택 체크·입력/저장 위계를 개선했다. 타입/린트/설정 회귀·fixture 행동·로컬 웹 렌더·독립 코드 검수 PASS. Android 시스템 글자 확대·키보드·실제 저장 검증은 남아 **REVIEW**이며 배포 보류를 유지한다. [검증 기록](automation/runs/DESIGN-01-20261026-app-implementation.md).
+
 > 2026-10-23 소스 통합 검증: DEV-02 → Firebase [PR #1](https://github.com/rchani99/ssaida-app/pull/1) 병합 완료.
 > master 통합은 [PR #2](https://github.com/rchani99/ssaida-app/pull/2)에서 추적한다. 타입·린트·로컬 회귀 48개와 독립 집중 회귀 4개 PASS.
 > 소스 병합과 운영 완료는 구분하며 DEV-01/02의 REVIEW 및 남은 실기기·테스터 검증은 유지한다. [검증 기록](releases/dev02-firebase-integration-20261023.md).

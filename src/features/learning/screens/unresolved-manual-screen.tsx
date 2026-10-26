@@ -2,6 +2,7 @@ import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '@/design-system/tokens';
+import { BacklogHelp } from '@/features/learning/components/backlog-help';
 import { ManualTasksPanel } from '@/features/learning/components/manual-tasks-panel';
 import { useCurrentChild } from '@/features/learning/hooks/use-learning';
 import { ScreenMessage } from '@/shared/components/screen-message';
@@ -22,7 +23,8 @@ export function UnresolvedManualScreen() {
       edges={['bottom', 'left', 'right']}
       style={{ flex: 1, backgroundColor: colors.background }}
     >
-      <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+        <BacklogHelp />
         <ManualTasksPanel key={child.data.id} childId={child.data.id} mode="unresolved" showList />
       </ScrollView>
     </SafeAreaView>

@@ -446,3 +446,13 @@ APK 버전별 실기기 결과를 구분한다. 2026-10-22 DEV-01에서 APK 정�
 - 관련 파일: src/features/learning/components/task-exclusion-panel.tsx, src/features/learning/screens/today-plan-edit-screen.tsx, scripts/sprint2-exclusion-ui-regression.mjs.
 - 승인 경계: 기존 검수 완료 브랜치 push·Draft PR 승인 적용. 운영 변경·새 빌드·배포·자동화 설정 변경은 수행하지 않는다.
 - 결과: [실행 기록](automation/runs/DEV-10-20261026-today-skip.md). 실기기 검증 전 REVIEW 유지 예정.
+
+## DEV-13-CARRYOVER — 정기 공부 이어가기·밀린 공부 통합
+
+- 상태: BLOCKED / 정책 응답 대기. UI 선행분 d6534fd 구현·로컬 검증·독립 검수 PASS(REVIEW), 정기 재배정 DB/RPC와 12개 데이터 회귀 미구현·미실행.
+- 승인: 2026-10-26 사용자 최종 정책 직접 요청. DEV-13 전체 또는 다른 과제의 포괄 승인은 아님.
+- 목표: 지난 정기/일회성 미완료 관리, 다음 정기일 및 오늘 추가의 중복 활성 배정 방지, 원본 이력·실제 진도 보존. 오늘 공부는 밀린 목록 제외.
+- 완료 기준: 사용자 지정 12개 예외 시나리오, 격리 DB/RPC·동시 요청 회귀, 관련 앱 테스트, 독립 검수. 실기기 검증 일괄 진행 및 배포 보류.
+- 현재 미결정 경계: 확인 대기 임시 진도 유지 여부, 식별자 없는 과거 수동 항목 처리, 이미 생성된 미래 배정을 오늘로 옮기는 기준. 임의 결정 금지.
+- DB 영향: 정기 원본/활성 배정 관계와 요청 정리 메타데이터·RPC 보완 필요. 운영 적용 전 영향도 보고/승인, 기존 이력 일괄 변경 금지.
+- 근거: [분석·검증 기록](automation/runs/DEV-13-20261026-carryover.md). 로컬 Docker 엔진 현재 미실행으로 DB 회귀는 아직 실행하지 않았다.

@@ -12,8 +12,8 @@ export function UnresolvedManualButton({ childId }: { childId: string }) {
     <LearningButton
       label={
         query.isLoading || query.isError
-          ? '지난 공부 정리하기'
-          : `지난 공부 ${query.data?.length ?? 0}개 정리하기`
+          ? '밀린 공부 정리하기'
+          : `밀린 공부 ${query.data?.length ?? 0}개 정리하기`
       }
       onPress={() => router.push('/parent-review?tab=unresolved')}
     />

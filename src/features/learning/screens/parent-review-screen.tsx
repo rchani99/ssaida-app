@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { dashboardTokens as t } from '@/design-system/tokens';
+import { BacklogHelp } from '@/features/learning/components/backlog-help';
 import {
   LearningButton,
   learningStyles as s,
@@ -94,7 +95,7 @@ export function ParentReviewContent({ childId }: { childId: string }) {
           <SegmentedTabs
             options={[
               { value: 'pending', label: '확인 필요' },
-              { value: 'unresolved', label: '미완료' },
+              { value: 'unresolved', label: '밀린 공부' },
               { value: 'conflicts', label: '진도 충돌' },
             ]}
             value={tab}
@@ -124,7 +125,10 @@ export function ParentReviewContent({ childId }: { childId: string }) {
             />
           )}
           {tab === 'unresolved' && (
-            <ManualTasksPanel childId={childId} mode="unresolved" showList reviewStyle />
+            <>
+              <BacklogHelp />
+              <ManualTasksPanel childId={childId} mode="unresolved" showList reviewStyle />
+            </>
           )}
           {tab === 'conflicts' && (
             <ParentConfirmationPanel

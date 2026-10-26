@@ -10,7 +10,7 @@ export function completionReward(tasks: DailyTask[], completedTaskId: string) {
   if (
     !active.some((task) => task.id === completedTaskId && task.status === 'CHILD_COMPLETED') ||
     group.remaining !== 0 ||
-    group.completed !== group.todayCount
+    group.completed + group.pending + group.partial !== group.todayCount
   )
     return null;
 

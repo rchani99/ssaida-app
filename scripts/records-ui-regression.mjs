@@ -66,29 +66,35 @@ const weekly = buildWeeklyRecords(rows, '2026-09-23');
 assert.equal(weekly.weekStart, '2026-09-21');
 assert.equal(weekly.weekEnd, '2026-09-27');
 assert.equal(weekly.plannedCount, 5, 'exclude skipped/excluded/superseded/future');
-assert.equal(weekly.practicedCount, 3, 'match existing completed-status grouping');
-assert.equal(weekly.rate, 60);
+assert.equal(weekly.practicedCount, 1, 'only parent-confirmed tasks count as complete');
+assert.equal(weekly.rate, 20);
 assert.equal(weekly.plannedMinutes, 100, 'planned time is shown, not invented actual time');
 assert.deepEqual(
   weekly.days.slice(0, 3).map(({ practiced, planned }) => [practiced, planned]),
   [
     [1, 1],
-    [1, 2],
-    [1, 2],
+    [0, 2],
+    [0, 2],
   ],
 );
 assert.deepEqual(
   weekly.days.slice(0, 3).map(({ rate }) => rate),
-  [100, 50, 50],
+  [100, 0, 0],
   'weekday bars use practiced/planned ratios',
 );
+assert.equal(weekly.pendingCount, 1);
+assert.equal(weekly.partialCount, 1);
+assert.equal(weekly.days[1].partial, 1);
+assert.equal(weekly.days[2].pending, 1);
+assert.equal(historyStatus(rows[1], new Set()).label, '부분 완료');
+assert.equal(historyStatus(rows[3], new Set()).label, '확인 대기');
 const comparison = compareWeeklyRate(rows, '2026-09-23');
 assert.equal(
   comparison.previous.rate,
   33,
   'previous period uses the same Monday-to-Wednesday range',
 );
-assert.equal(comparison.difference, 27);
+assert.equal(comparison.difference, -13);
 assert.equal(
   compareWeeklyRate(rows, '2026-09-13').difference,
   null,
@@ -147,4 +153,22 @@ assert.ok(historyScreen.includes('groupHistory(tasks, today)'));
 assert.ok(historyScreen.includes('RecordsHistoryList'));
 console.log(
   'PASS records: ring source, weekday ratios, comparable prior period, recent-only preview, full-history route and no fake actual time',
+);
+
+const nextDay = buildWeeklyRecords(rows, '2026-09-24');
+assert.equal(nextDay.pendingCount, 1, 'pending does not expire overnight');
+assert.equal(nextDay.partialCount, 1);
+const hidden = ['CHILD_COMPLETED', 'PARTIAL', 'PARENT_CONFIRMED'].flatMap((status, index) => [
+  task('excluded-' + index, '2026-09-23', status, { excluded_for_today: true }),
+  task('superseded-' + index, '2026-09-23', status, { is_superseded: true }),
+]);
+const hiddenSummary = buildWeeklyRecords(hidden, '2026-09-23');
+assert.deepEqual(
+  [
+    hiddenSummary.plannedCount,
+    hiddenSummary.practicedCount,
+    hiddenSummary.pendingCount,
+    hiddenSummary.partialCount,
+  ],
+  [0, 0, 0, 0],
 );

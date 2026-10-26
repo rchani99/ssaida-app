@@ -4,15 +4,29 @@ import { childCollectionTokens as reward, colors, spacing } from '@/design-syste
 import { LearningButton } from '@/features/learning/components/learning-controls';
 import { StudyCelebrationArt } from '@/features/learning/components/study-celebration-art';
 
-export function DailyStudyCelebration({ onCollection }: { onCollection: () => void }) {
+export function DailyStudyCelebration({
+  onCollection,
+  pending = 0,
+  partial = 0,
+}: {
+  onCollection: () => void;
+  pending?: number;
+  partial?: number;
+}) {
   return (
     <View style={styles.card} accessibilityLiveRegion="polite">
       <StudyCelebrationArt animate={false} />
       <Text accessibilityRole="header" style={styles.title}>
-        오늘 공부, 모두 완료!
+        {pending > 0
+          ? '오늘의 공부, 확인을 기다려요!'
+          : partial > 0
+            ? '오늘도 차근차근 해냈어요!'
+            : '오늘 공부, 모두 완료!'}
       </Text>
       <Text style={styles.copy}>
-        하나씩 해낸 오늘, 정말 멋져요.{'\n'}이제 편하게 쉬어도 좋아요.
+        {pending > 0 || partial > 0
+          ? `확인 대기 ${pending}개 · 부분 완료 ${partial}개`
+          : '하나씩 해낸 오늘, 정말 멋져요. 이제 편하게 쉬어도 좋아요.'}
       </Text>
       <LearningButton label="내 컬렉션 보기" variant="primary" onPress={onCollection} />
     </View>

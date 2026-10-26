@@ -87,7 +87,11 @@ export function TaskExclusionPanel({
       {
         onSuccess: () => {
           setDraft(null);
-          setMessage('오늘 공부에서 제외했어요. 다음 공부 일정은 그대로예요.');
+          setMessage(
+            editStyle
+              ? '오늘 공부를 건너뛰었어요. 등록한 공부와 기록, 다음 공부 일정은 그대로예요.'
+              : '오늘 공부에서 제외했어요. 다음 공부 일정은 그대로예요.',
+          );
         },
         onError: (error) => {
           void recover(error);
@@ -119,7 +123,9 @@ export function TaskExclusionPanel({
           <Text style={s.secondary}>
             {task.exclusion_reason === 'CONFIRMED_PROGRESS'
               ? '진도에 맞춰 제외됨 · 이미 확인된 범위'
-              : '오늘 제외됨'}
+              : editStyle
+                ? '오늘은 건너뜀'
+                : '오늘 제외됨'}
           </Text>
         ) : draft?.task.id === task.id ? (
           <View
@@ -134,7 +140,14 @@ export function TaskExclusionPanel({
               },
             ]}
           >
-            <Text style={s.text}>이 공부를 오늘만 제외할까요?</Text>
+            <Text style={s.text}>
+              {editStyle ? '이 공부를 오늘은 건너뛸까요?' : '이 공부를 오늘만 제외할까요?'}
+            </Text>
+            {editStyle && (
+              <Text style={s.secondary}>
+                오늘 계획에서만 제외해요. 등록한 공부와 기록, 다음 공부 일정은 그대로예요.
+              </Text>
+            )}
             <View
               style={[
                 { gap: s.card.gap },
@@ -149,7 +162,7 @@ export function TaskExclusionPanel({
                 onPress={() => setDraft(null)}
               />
               <LearningButton
-                label={editStyle ? '확인' : '오늘만 제외 확인'}
+                label={editStyle ? '건너뛰기' : '오늘만 제외 확인'}
                 variant={editStyle ? 'primary' : 'secondary'}
                 compact={editStyle}
                 disabled={mutation.isPending || tasks.isFetching}
@@ -159,7 +172,7 @@ export function TaskExclusionPanel({
           </View>
         ) : (
           <LearningButton
-            label={editStyle ? '오늘만 제외' : task.name_snapshot + ' 오늘만 제외'}
+            label={editStyle ? '오늘은 건너뛰기' : task.name_snapshot + ' 오늘만 제외'}
             variant={editStyle ? 'neutral' : 'secondary'}
             compact={editStyle}
             disabled={mutation.isPending || tasks.isFetching}

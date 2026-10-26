@@ -234,9 +234,16 @@ const mocks = {
   },
 };
 const panel = load('src/features/learning/components/task-exclusion-panel.tsx', mocks);
+let editStyle = false;
 const render = () => {
   cursor = 0;
-  return panel.TaskExclusionPanel({ childId: 'child' });
+  return panel.TaskExclusionPanel({
+    childId: 'child',
+    editStyle,
+    renderContent: editStyle
+      ? (controls, feedback) => jsx('Fragment', { children: [...controls.values(), feedback] })
+      : undefined,
+  });
 };
 const nodes = (t) =>
   !t || typeof t !== 'object'
@@ -296,6 +303,49 @@ console.log(
   'PASS exclusion UI: eligibility, inline confirm/cancel, double-submit, saved badge, conflict recovery/re-edit, midnight',
 );
 
+// The edit screen reuses the exclusion action, not the child's SKIPPED transition.
+slots.length = 0;
+editStyle = true;
+rows = [
+  make('Editable'),
+  make('Excluded', { excluded_for_today: true }),
+  make('Progress resolved', { excluded_for_today: true, exclusion_reason: 'CONFIRMED_PROGRESS' }),
+  make('Conflict', { quantity_conflict: 'GAP' }),
+  make('Started planned', { started_at: 'now' }),
+  make('Manual', { source_type: 'MANUAL' }),
+  make('Rescheduled', { source_type: 'RESCHEDULED' }),
+  ...['IN_PROGRESS', 'CHILD_COMPLETED', 'RETRY', 'PARENT_CONFIRMED', 'PARTIAL', 'SKIPPED'].map(
+    (status) => make(status, { status }),
+  ),
+];
+const savesBeforeEdit = saves;
+assert.equal(nodes(render()).filter((n) => n.props?.label === '오늘은 건너뛰기').length, 1);
+assert.ok(text('오늘은 건너뜀'));
+assert.ok(text('진도에 맞춰 제외됨 · 이미 확인된 범위'));
+button('오늘은 건너뛰기').onPress();
+assert.ok(text('이 공부를 오늘은 건너뛸까요?'));
+assert.ok(text('오늘 계획에서만 제외해요. 등록한 공부와 기록, 다음 공부 일정은 그대로예요.'));
+button('취소').onPress();
+assert.equal(saves, savesBeforeEdit, 'Cancel never mutates a task');
+button('오늘은 건너뛰기').onPress();
+button('건너뛰기').onPress();
+button('건너뛰기').onPress();
+assert.equal(saves, savesBeforeEdit + 1, 'Edit screen also prevents duplicate submission');
+assert.equal(input.task.id, 'Editable');
+assert.equal(input.task.status, 'PLANNED', 'Reuse exclusion input without changing status');
+assert.equal(input.task.updated_at, 'v1', 'Preserve concurrency token');
+pending = true;
+assert.equal(button('취소').disabled, true);
+assert.equal(button('건너뛰기').disabled, true);
+rows = rows.map((task) => (task.id === 'Editable' ? { ...task, excluded_for_today: true } : task));
+callbacks.onSuccess();
+callbacks.onSettled();
+pending = false;
+assert.ok(text('오늘 공부를 건너뛰었어요. 등록한 공부와 기록, 다음 공부 일정은 그대로예요.'));
+assert.equal(nodes(render()).filter((n) => n.props?.label === '오늘은 건너뛰기').length, 0);
+console.log(
+  'PASS edit skip: existing eligibility, confirmation/cancel, duplicate guard, pending, exclusion input and feedback',
+);
 const exception = load('src/features/learning/utils/exception-tasks.ts', {});
 const excluded = make('excluded', { excluded_for_today: true });
 assert.deepEqual(

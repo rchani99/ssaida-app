@@ -41,7 +41,7 @@ export function ParentReviewLinks({ childId }: { childId: string }) {
               error: pending.isError,
             },
             {
-              label: '미완료',
+              label: '밀린 공부',
               tab: 'unresolved',
               tone: 'unfinished',
               count: unresolved.data?.length ?? 0,

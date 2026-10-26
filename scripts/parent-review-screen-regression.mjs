@@ -78,6 +78,7 @@ const mocks = {
   '@/features/learning/components/parent-confirmation-panel': {
     ParentConfirmationPanel: 'Confirm',
   },
+  '@/features/learning/components/backlog-help': { BacklogHelp: 'BacklogHelp' },
   '@/features/learning/components/manual-tasks-panel': { ManualTasksPanel: 'Manual' },
   '@/features/learning/hooks/use-learning': {
     useCurrentChild: () => ({ data: { id: 'child' } }),

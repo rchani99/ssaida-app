@@ -235,14 +235,15 @@ const pastButton = load('src/features/learning/components/unresolved-manual-butt
   '@/features/learning/components/learning-controls': { LearningButton: 'Button' },
   '@/features/learning/hooks/use-learning': { useUnresolvedManualTasks: () => pastQuery },
 }).UnresolvedManualButton;
-assert.equal(pastButton({ childId: 'child' }).props.label, '지난 공부 1개 정리하기');
+assert.equal(pastButton({ childId: 'child' }).props.label, '밀린 공부 1개 정리하기');
 pastButton({ childId: 'child' }).props.onPress();
 assert.equal(route, '/parent-review?tab=unresolved');
 pastQuery = { isError: true };
-assert.equal(pastButton({ childId: 'child' }).props.label, '지난 공부 정리하기');
+assert.equal(pastButton({ childId: 'child' }).props.label, '밀린 공부 정리하기');
 const pastScreen = load('src/features/learning/screens/unresolved-manual-screen.tsx', {
   ...base,
   'react-native-safe-area-context': { SafeAreaView: 'Safe' },
+  '@/features/learning/components/backlog-help': { BacklogHelp: 'BacklogHelp' },
   '@/features/learning/components/manual-tasks-panel': { ManualTasksPanel: 'Manual' },
   '@/features/learning/hooks/use-learning': { useCurrentChild: () => ({ data: { id: 'child' } }) },
   '@/shared/components/screen-message': { ScreenMessage: 'Message' },
@@ -320,6 +321,7 @@ const editor = load('src/features/learning/screens/today-plan-edit-screen.tsx', 
   'react-native-safe-area-context': { SafeAreaView: 'Safe' },
   '@/features/learning/components/learning-controls': { learningStyles: {} },
   '@/features/learning/components/today-plan-edit-gate': { TodayPlanEditGate: 'Gate' },
+  '@/features/learning/components/backlog-help': { BacklogHelp: 'BacklogHelp' },
   '@/features/learning/components/manual-tasks-panel': { ManualTasksPanel: 'Manual' },
   '@/features/learning/components/task-order-panel': { TaskOrderPanel: 'Order' },
   '@/features/learning/components/task-quantity-panel': { TaskQuantityPanel: 'Quantity' },

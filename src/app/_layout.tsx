@@ -83,7 +83,7 @@ function RootNavigator() {
               name="parent-unresolved"
               options={{
                 headerShown: true,
-                title: '지난 공부 정리하기',
+                title: '밀린 공부',
                 headerRight: () => <ChildModeButton />,
                 headerStyle: { backgroundColor: colors.card },
                 headerTintColor: colors.textPrimary,

@@ -157,7 +157,7 @@ for (count of [0, 1, 4, 1000]) {
   for (const [i, tab] of ['pending', 'unresolved', 'conflicts'].entries()) {
     assert.equal(
       links[i].props.accessibilityLabel,
-      `${['확인 필요', '미완료', '진도 충돌'][i]} ${count}개`,
+      `${['확인 필요', '밀린 공부', '진도 충돌'][i]} ${count}개`,
     );
     assert.equal(links[i].props.accessibilityRole, 'button');
     const rowStyle = flatten(links[i].props.style({ pressed: false }));
@@ -228,7 +228,7 @@ const actualLinks = load(
 const mixedRows = nodes(actualLinks({ childId: 'child' })).filter((n) => n.type === 'Pressable');
 assert.deepEqual(
   mixedRows.map((n) => n.props.accessibilityLabel),
-  ['확인 필요 2개', '미완료 1개', '진도 충돌 3개'],
+  ['확인 필요 2개', '밀린 공부 1개', '진도 충돌 3개'],
 );
 for (const [i, row] of mixedRows.entries()) {
   row.props.onPress();

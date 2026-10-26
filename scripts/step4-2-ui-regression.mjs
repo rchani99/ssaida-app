@@ -667,10 +667,10 @@ assert.equal(savedManual.endPage, null);
 button(manualTree(), '+ 오늘 할 일 추가').onPress();
 button(manualTree(), '직접 입력').onPress();
 assert.equal(inputField('오늘 할 일 시작 쪽').value, '1');
-button(manualTree(), '지난 공부 2개 정리하기').onPress();
+button(manualTree(), '밀린 공부 2개 정리하기').onPress();
 for (const [label, confirmLabel] of [
   ['오늘에 추가', '오늘로 옮기기 확인'],
-  ['이번엔 넘기기', '넘기기 확인'],
+  ['이번에는 넘기기', '넘기기 확인'],
 ]) {
   button(
     nodes(manualTree()).find(
@@ -716,12 +716,12 @@ assert.equal(moveCalls, 1);
 assert.equal(skipCalls, 1);
 tree = manual.render({ childId: 'child', mode: 'unresolved', showList: true });
 assert.ok(text(tree).includes('first'));
-assert.ok(!text(tree).includes('지난 공부 2개 정리하기'));
+assert.ok(!text(tree).includes('밀린 공부 2개 정리하기'));
 assert.ok(!text(tree).includes('+ 오늘 할 일 추가'));
 pastTasks.length = 0;
 assert.ok(
   text(manual.render({ childId: 'child', mode: 'unresolved', showList: true })).includes(
-    '정리할 지난 공부가 없어요.',
+    '지금 처리할 밀린 공부가 없어요.',
   ),
 );
 console.log(

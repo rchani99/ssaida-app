@@ -425,9 +425,9 @@ export function ManualTasksPanel({
             <ActivityIndicator />
           ) : unresolved.isError ? (
             <>
-              <Text style={s.error}>지난 공부를 불러오지 못했어요.</Text>
+              <Text style={s.error}>밀린 공부를 불러오지 못했어요.</Text>
               <LearningButton
-                label="지난 공부 다시 불러오기"
+                label="밀린 공부 다시 불러오기"
                 onPress={() => void unresolved.refetch()}
               />
             </>
@@ -443,15 +443,21 @@ export function ManualTasksPanel({
               }
             >
               {unresolved.data?.length
-                ? `정리할 지난 공부 ${unresolved.data.length}개`
-                : '정리할 지난 공부가 없어요.'}
+                ? `처리할 밀린 공부 ${unresolved.data.length}개`
+                : '지금 처리할 밀린 공부가 없어요.'}
             </Text>
           ) : (
             <LearningButton
-              label={`지난 공부 ${unresolved.data?.length ?? 0}개 정리하기`}
+              label={`밀린 공부 ${unresolved.data?.length ?? 0}개 정리하기`}
               onPress={() => setExpanded(!expanded)}
             />
           )}
+          {showList &&
+            !unresolved.isLoading &&
+            !unresolved.isError &&
+            unresolved.data?.length === 0 && (
+              <Text style={s.secondary}>{"오늘 해야 할 공부는 '오늘 공부'에서 확인하세요."}</Text>
+            )}
           {(showList || expanded) &&
             (unresolved.data ?? []).map((task) => (
               <View key={task.id} style={[s.card, reviewStyle && parentReviewStyles.card]}>
@@ -480,7 +486,7 @@ export function ManualTasksPanel({
                           setChoices((previous) => ({ ...previous, [task.id]: 'move' })),
                       },
                       {
-                        label: '이번엔 넘기기',
+                        label: '이번에는 넘기기',
                         selected: choices[task.id] === 'skip',
                         onPress: () =>
                           setChoices((previous) => ({ ...previous, [task.id]: 'skip' })),
@@ -495,7 +501,7 @@ export function ManualTasksPanel({
                       onPress={() => setAction({ task, kind: 'move' })}
                     />
                     <LearningButton
-                      label="이번엔 넘기기"
+                      label="이번에는 넘기기"
                       disabled={busy}
                       onPress={() => setAction({ task, kind: 'skip' })}
                     />

@@ -66,6 +66,7 @@ export function TodayPlanEditScreen() {
                 '아직 시작하지 않은 공부끼리 순서를 바꿔요.',
                 '이어하기와 다시 하기는 먼저 표시돼요.',
                 '오른쪽 손잡이를 잡고 순서를 바꿔보세요.',
+                '시작 전 자동 공부는 오늘만 건너뛸 수 있어요. 등록한 공부와 기록은 유지돼요.',
               ].map((message) => (
                 <View
                   key={message}

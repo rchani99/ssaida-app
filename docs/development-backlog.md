@@ -435,3 +435,14 @@ APK 버전별 실기기 결과를 구분한다. 2026-10-22 DEV-01에서 APK 정�
 - 관련 코드: src/features/learning/utils/records.ts, visible-tasks.ts 및 소비 화면·관련 회귀 스크립트.
 - 승인 경계: 검수된 브랜치 push·Draft PR은 지속 승인 적용. 새 원격 빌드·병합·배포는 수행하지 않는다. 배포 보류 유지.
 - 구현/검증 근거: [실행 기록](automation/runs/DEV-10-20261026-status.md). 실기기 검증 전 DONE으로 처리하지 않는다.
+
+## DEV-10-SKIP — 오늘 공부 편집의 오늘은 건너뛰기
+
+- 상태: REVIEW. 사용자 2026-10-26 직접 승인. 소스 3b11ef7 구현·관련 로컬 검증·독립 검수 PASS. 실기기 일괄 검증 대기.
+- 목표: 기존 오늘만 제외 기능을 편집 화면에서 ‘오늘은 건너뛰기’로 명확히 안내한다.
+- 구현 범위: 기존 TaskExclusionPanel과 오늘 공부 편집 UI 재사용. 시작 전 자동 공부의 기존 허용 조건, 충돌·중복 제출·날짜 변경 보호, 기록·포인트·DB/API 규칙 유지.
+- 완료 기준: 해당 편집 경로의 버튼/확인/취소/결과 안내, 허용·비허용 항목과 기존 저장 보호 관련 로컬 회귀, 타입·린트 및 별도 담당 독립 검수. 실기기 검증은 일괄 진행한다.
+- 선행 기준: DEV-10-STATUS 문서 포함 7db3f6a, 격리 작업 트리 재사용, codex/today-skip-action 브랜치.
+- 관련 파일: src/features/learning/components/task-exclusion-panel.tsx, src/features/learning/screens/today-plan-edit-screen.tsx, scripts/sprint2-exclusion-ui-regression.mjs.
+- 승인 경계: 기존 검수 완료 브랜치 push·Draft PR 승인 적용. 운영 변경·새 빌드·배포·자동화 설정 변경은 수행하지 않는다.
+- 결과: [실행 기록](automation/runs/DEV-10-20261026-today-skip.md). 실기기 검증 전 REVIEW 유지 예정.

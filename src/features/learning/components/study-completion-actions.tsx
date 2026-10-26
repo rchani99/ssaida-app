@@ -81,7 +81,9 @@ export function StudyCompletionActions({
               ? '부모님 확인을 기다리고 있어요.'
               : status === 'SKIPPED'
                 ? '오늘 공부에서 다음 할 일을 확인해 주세요.'
-                : '부모님이 공부를 확인했어요.'}
+                : status === 'PARTIAL'
+                  ? '부분 완료 · 부모님이 일부 공부를 확인했어요.'
+                  : '완료 · 부모님이 공부를 확인했어요.'}
           </Text>
         </View>
       )}

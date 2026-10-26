@@ -45,20 +45,36 @@ assert.equal(shiftMonth('2026-01-15', -1), '2025-12-01');
 
 const monthly = buildMonthlyRecords(rows, '2026-09-01', '2026-09-30');
 assert.equal(monthly.plannedCount, 4, 'month boundaries exclude August and October');
-assert.equal(monthly.practicedCount, 2);
-assert.equal(monthly.rate, 50);
+assert.equal(monthly.practicedCount, 0);
+assert.equal(monthly.rate, 0);
 assert.equal(monthly.plannedMinutes, 80);
-assert.equal(monthly.weeks[0].rate, 67);
+assert.equal(monthly.weeks[0].rate, 0);
 assert.equal(monthly.weeks[1].rate, 0);
 assert.equal(monthly.weeks[4].rate, null);
-assert.equal(monthly.calendar.find((day) => day.date === '2026-09-01').status, 'complete');
-assert.equal(monthly.calendar.find((day) => day.date === '2026-09-02').status, 'partial');
+assert.equal(monthly.calendar.find((day) => day.date === '2026-09-01').status, 'pending');
+assert.equal(monthly.calendar.find((day) => day.date === '2026-09-02').status, 'mixed');
 assert.equal(monthly.calendar.find((day) => day.date === '2026-09-08').status, 'missed');
 assert.equal(monthly.calendar.find((day) => day.date === '2026-09-03').status, 'none');
 
+assert.equal(monthly.pendingCount, 1);
+assert.equal(monthly.partialCount, 1);
+const confirmed = buildMonthlyRecords(
+  [task('p', '2026-09-01', 'PARENT_CONFIRMED')],
+  '2026-09-01',
+  '2026-09-30',
+);
+assert.equal(confirmed.rate, 100);
+assert.equal(confirmed.calendar[0].status, 'complete');
+const partial = buildMonthlyRecords(
+  [task('p', '2026-09-01', 'PARTIAL')],
+  '2026-09-01',
+  '2026-09-30',
+);
+assert.equal(partial.rate, 0);
+assert.equal(partial.calendar[0].status, 'partial');
 const comparison = compareMonthlyRate(rows, '2026-09-01', '2026-09-30');
 assert.equal(comparison.previous.rate, 50);
-assert.equal(comparison.difference, 0);
+assert.equal(comparison.difference, -50);
 assert.equal(compareMonthlyRate(rows, '2026-08-01', '2026-09-30').difference, null);
 
 const screen = readFileSync('src/features/learning/screens/records-screen.tsx', 'utf8');

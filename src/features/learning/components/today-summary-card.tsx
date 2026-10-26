@@ -18,7 +18,7 @@ export function TodaySummaryCard({ groups }: { groups: TodayGroups }) {
     [],
   );
   const remainingMinutes = remainingToday.todayMinutes + groups.continuingMinutes;
-  const total = groups.completed + groups.remaining;
+  const total = groups.completed + groups.pending + groups.partial + groups.remaining;
   const progress =
     total > 0 ? Math.min(100, Math.max(0, Math.round((groups.completed / total) * 100))) : 0;
 
@@ -40,7 +40,7 @@ export function TodaySummaryCard({ groups }: { groups: TodayGroups }) {
       <View
         accessible
         accessibilityRole="progressbar"
-        accessibilityLabel="오늘 공부 진행률"
+        accessibilityLabel="부모 확인 기준 완료율"
         accessibilityValue={{ min: 0, max: 100, now: progress }}
         style={styles.progressRow}
       >
@@ -50,10 +50,14 @@ export function TodaySummaryCard({ groups }: { groups: TodayGroups }) {
         <Text style={styles.percent}>{progress}%</Text>
       </View>
 
+      <Text style={styles.description}>
+        확인 대기 {groups.pending}개 · 부분 완료 {groups.partial}개
+      </Text>
       <View style={[styles.stats, stacked && styles.stackedStats]}>
         <SummaryStat icon={CircleCheck} label="완료" value={`${groups.completed}개`} />
         <SummaryStat icon={Clock3} label="계획 시간" value={`${groups.todayMinutes}분`} />
       </View>
+      <Text style={styles.description}>완료율은 부모님 확인 기준이에요.</Text>
     </View>
   );
 }

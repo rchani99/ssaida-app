@@ -24,9 +24,9 @@ export function groupTodayTasks(today: DailyTask[], past: DailyTask[]) {
     todayCount: countedToday.length,
     todayMinutes: countedToday.reduce((sum, task) => sum + task.planned_minutes, 0),
     continuingMinutes: continuing.reduce((sum, task) => sum + task.planned_minutes, 0),
-    completed: countedToday.filter((task) =>
-      ['CHILD_COMPLETED', 'PARENT_CONFIRMED', 'PARTIAL'].includes(task.status),
-    ).length,
+    completed: countedToday.filter((task) => task.status === 'PARENT_CONFIRMED').length,
+    pending: countedToday.filter((task) => task.status === 'CHILD_COMPLETED').length,
+    partial: countedToday.filter((task) => task.status === 'PARTIAL').length,
     remaining:
       continuing.length +
       countedToday.filter((task) => ['PLANNED', 'IN_PROGRESS', 'RETRY'].includes(task.status))

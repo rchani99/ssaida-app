@@ -252,7 +252,7 @@ for (const n of [0, 1, 4]) {
   const status = text(TodayPlanSummary({ childId: 'child', mode: 'status' }));
   assert.ok(
     status.includes(
-      `오늘 ${n}개 남았어요약 ${n * 10}분 · 오늘 계획 ${n}개 · 이어하기 0개0%완료0개계획 시간${n * 10}분`,
+      `오늘 ${n}개 남았어요약 ${n * 10}분 · 오늘 계획 ${n}개 · 이어하기 0개0%확인 대기 0개 · 부분 완료 0개완료0개계획 시간${n * 10}분`,
     ),
   );
 }
@@ -271,8 +271,9 @@ tasks[0] = task('PLANNED', {
 });
 const status = text(TodayPlanSummary({ childId: 'child', mode: 'status' }));
 assert.ok(
-  status.match(/오늘 2개 남았어요.*오늘 계획 5개 · 이어하기 \d+개\d+%완료3개계획 시간50분/),
+  status.match(/오늘 2개 남았어요.*오늘 계획 5개 · 이어하기 \d+개\d+%.*완료1개계획 시간50분/),
 );
+assert.ok(status.includes('확인 대기 1개 · 부분 완료 1개'));
 const summary = TodayPlanSummary({ childId: 'child' });
 assert.ok(text(summary).includes('95~99쪽진도 확인 필요'));
 assert.ok(text(summary).includes('부모 확인 대기'));
@@ -365,14 +366,14 @@ for (const [hook, sourceType] of [
   load('src/features/learning/hooks/use-learning.ts')[hook]();
   assert.ok(
     text(TodayPlanSummary({ childId: 'child', mode: 'status' })).match(
-      /오늘 2개 남았어요.*오늘 계획 2개 · 이어하기 \d+개\d+%완료0개계획 시간35분/,
+      /오늘 2개 남았어요.*오늘 계획 2개 · 이어하기 \d+개\d+%.*완료0개계획 시간35분/,
     ),
   );
   await new MutationObserver(client, options).mutate({});
   tasks = client.getQueryData(key);
   assert.ok(
     text(TodayPlanSummary({ childId: 'child', mode: 'status' })).match(
-      /오늘 3개 남았어요.*오늘 계획 3개 · 이어하기 \d+개\d+%완료0개계획 시간60분/,
+      /오늘 3개 남았어요.*오늘 계획 3개 · 이어하기 \d+개\d+%.*완료0개계획 시간60분/,
     ),
   );
   // A mounted tab with an old snapshot must also refresh on return.
@@ -381,7 +382,7 @@ for (const [hook, sourceType] of [
   onFocus();
   assert.ok(
     text(TodayPlanSummary({ childId: 'child', mode: 'status' })).match(
-      /오늘 3개 남았어요.*오늘 계획 3개 · 이어하기 \d+개\d+%완료0개계획 시간60분/,
+      /오늘 3개 남았어요.*오늘 계획 3개 · 이어하기 \d+개\d+%.*완료0개계획 시간60분/,
     ),
   );
   tasks = [
@@ -394,7 +395,7 @@ for (const [hook, sourceType] of [
   ];
   assert.ok(
     text(TodayPlanSummary({ childId: 'child', mode: 'status' })).match(
-      /오늘 3개 남았어요.*오늘 계획 3개 · 이어하기 \d+개\d+%완료0개계획 시간60분/,
+      /오늘 3개 남았어요.*오늘 계획 3개 · 이어하기 \d+개\d+%.*완료0개계획 시간60분/,
     ),
   );
   // Completing the added task must move one count from remaining to completed,
@@ -414,14 +415,14 @@ for (const [hook, sourceType] of [
   tasks = client.getQueryData(key);
   assert.ok(
     text(TodayPlanSummary({ childId: 'child', mode: 'status' })).match(
-      /오늘 2개 남았어요.*오늘 계획 3개 · 이어하기 \d+개\d+%완료1개계획 시간60분/,
+      /오늘 2개 남았어요.*오늘 계획 3개 · 이어하기 \d+개\d+%.*완료0개계획 시간60분/,
     ),
     `${sourceType}: completing the added study updates all four metrics`,
   );
   tasks = tasks.map((row) => (row.id === 'c' ? { ...row, excluded_for_today: true } : row));
   assert.ok(
     text(TodayPlanSummary({ childId: 'child', mode: 'status' })).match(
-      /오늘 2개 남았어요.*오늘 계획 2개 · 이어하기 \d+개\d+%완료0개계획 시간35분/,
+      /오늘 2개 남았어요.*오늘 계획 2개 · 이어하기 \d+개\d+%.*완료0개계획 시간35분/,
     ),
     'Excluded rows contribute to none of the four metrics, regardless of status',
   );
@@ -435,7 +436,7 @@ continuing = ['IN_PROGRESS', 'RETRY', 'IN_PROGRESS'].map((status, i) =>
 );
 let separated = text(TodayPlanSummary({ childId: 'child', mode: 'status' }));
 assert.ok(
-  separated.match(/오늘 3개 남았어요.*오늘 계획 0개 · 이어하기 \d+개\d+%완료0개계획 시간0분/),
+  separated.match(/오늘 3개 남았어요.*오늘 계획 0개 · 이어하기 \d+개\d+%.*완료0개계획 시간0분/),
 );
 assert.ok(separated.includes('약 60분 · 오늘 계획 0개 · 이어하기 3개'));
 tasks = [
@@ -448,13 +449,13 @@ tasks = [
 ];
 separated = text(TodayPlanSummary({ childId: 'child', mode: 'status' }));
 assert.ok(
-  separated.match(/오늘 3개 남았어요.*오늘 계획 1개 · 이어하기 \d+개\d+%완료0개계획 시간20분/),
+  separated.match(/오늘 3개 남았어요.*오늘 계획 1개 · 이어하기 \d+개\d+%.*완료0개계획 시간20분/),
 );
 assert.ok(separated.includes('약 60분 · 오늘 계획 1개 · 이어하기 2개'));
 tasks[0].status = 'CHILD_COMPLETED';
 assert.ok(
   text(TodayPlanSummary({ childId: 'child', mode: 'status' })).match(
-    /오늘 2개 남았어요.*오늘 계획 1개 · 이어하기 \d+개\d+%완료1개계획 시간20분/,
+    /오늘 2개 남았어요.*오늘 계획 1개 · 이어하기 \d+개\d+%.*완료0개계획 시간20분/,
   ),
 );
 continuingError = true;
@@ -588,7 +589,7 @@ const progressOf = (tree) => nodes(tree).find((n) => n.props?.accessibilityRole 
 for (const [fixture, expectedMinutes, percent] of [
   [[], 0, 0],
   [[task('PARENT_CONFIRMED')], 0, 100],
-  [[task('CHILD_COMPLETED'), task('PARTIAL'), task('PLANNED', { planned_minutes: 25 })], 25, 67],
+  [[task('CHILD_COMPLETED'), task('PARTIAL'), task('PLANNED', { planned_minutes: 25 })], 25, 0],
 ]) {
   tasks = fixture;
   continuing = [];
@@ -607,7 +608,7 @@ continuing = [
 let d2 = TodayPlanSummary({ childId: 'child', mode: 'status' });
 assert.ok(
   text(d2).includes(
-    '오늘 3개 남았어요약 60분 · 오늘 계획 1개 · 이어하기 2개0%완료0개계획 시간20분',
+    '오늘 3개 남았어요약 60분 · 오늘 계획 1개 · 이어하기 2개0%확인 대기 0개 · 부분 완료 0개완료0개계획 시간20분',
   ),
 );
 plan.isLoading = true;
@@ -657,7 +658,7 @@ assert.equal(tabs.props.screenOptions.headerStyle.height, undefined);
 assert.equal(mode, 'child');
 assert.equal(route, '/');
 console.log(
-  'PASS D2 remaining time, 0/67/100% progress, loading/error, date, icons, native header and child-mode transition',
+  'PASS D2 remaining time, 0/100% parent-confirmed progress, loading/error, date, icons, native header and child-mode transition',
 );
 
 // D4: list preserves query order and all existing status semantics.
@@ -794,3 +795,28 @@ assert.equal(dashboardChildButton.props.accessibilityLabel, '아이 화면');
 console.log(
   'PASS D7 inline title/description with independent right status; child button semantics preserved; dashboard date and note removed',
 );
+
+// Completion semantics are independent of child effort and action availability.
+
+const counts = groupTodayTasks(
+  ['PLANNED', 'IN_PROGRESS', 'RETRY', 'CHILD_COMPLETED', 'PARENT_CONFIRMED', 'PARTIAL'].map((s) =>
+    task(s),
+  ),
+  [],
+);
+assert.deepEqual(
+  [counts.completed, counts.pending, counts.partial, counts.remaining, counts.todayCount],
+  [1, 1, 1, 3, 6],
+);
+mocks['@/features/learning/components/study-celebration-art'] = {
+  StudyCelebrationArt: 'StudyCelebrationArt',
+};
+const { DailyStudyCelebration } = load(
+  'src/features/learning/components/daily-study-celebration.tsx',
+);
+assert.ok(text(DailyStudyCelebration({ onCollection() {}, pending: 1 })).includes('확인 대기 1개'));
+assert.ok(!text(DailyStudyCelebration({ onCollection() {}, pending: 1 })).includes('모두 완료'));
+assert.ok(text(DailyStudyCelebration({ onCollection() {}, partial: 1 })).includes('부분 완료 1개'));
+assert.ok(!text(DailyStudyCelebration({ onCollection() {}, partial: 1 })).includes('모두 완료'));
+assert.ok(text(DailyStudyCelebration({ onCollection() {} })).includes('모두 완료'));
+console.log('PASS confirmed/pending/partial counts and honest effort celebration copy');

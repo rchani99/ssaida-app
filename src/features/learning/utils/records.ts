@@ -4,17 +4,18 @@ export type RecordsDay = {
   date: string;
   planned: number;
   practiced: number;
+  pending: number;
+  partial: number;
   isRest: boolean;
   rate: number | null;
 };
 
 export type MonthlyCalendarDay = RecordsDay & {
-  status: 'complete' | 'partial' | 'missed' | 'none';
+  status: 'complete' | 'pending' | 'partial' | 'mixed' | 'missed' | 'none';
 };
 
-// Keep the dashboard's existing completion rule: a child completion is practiced,
-// while its parent-verification state remains visible separately in history.
-const PRACTICED_STATUSES = new Set(['CHILD_COMPLETED', 'PARENT_CONFIRMED', 'PARTIAL']);
+// Completion is parent-confirmed only; pending and partial never inflate the rate.
+const PRACTICED_STATUSES = new Set(['PARENT_CONFIRMED']);
 
 export function startOfWeek(date: string) {
   const value = new Date(`${date}T12:00:00+09:00`);
@@ -81,6 +82,8 @@ export function buildWeeklyRecords(tasks: DailyTaskWithPlan[], today: string) {
       date: key,
       planned: dayTasks.length,
       practiced: dayTasks.filter((task) => PRACTICED_STATUSES.has(task.status)).length,
+      pending: dayTasks.filter((task) => task.status === 'CHILD_COMPLETED').length,
+      partial: dayTasks.filter((task) => task.status === 'PARTIAL').length,
       isRest: dayTasks.length === 0,
       rate: dayTasks.length
         ? Math.round(
@@ -96,6 +99,8 @@ export function buildWeeklyRecords(tasks: DailyTaskWithPlan[], today: string) {
     weekEnd: days[6].date,
     plannedCount: eligible.length,
     practicedCount: practiced.length,
+    pendingCount: eligible.filter((task) => task.status === 'CHILD_COMPLETED').length,
+    partialCount: eligible.filter((task) => task.status === 'PARTIAL').length,
     plannedMinutes: eligible.reduce((sum, task) => sum + task.planned_minutes, 0),
     rate: eligible.length ? Math.round((practiced.length / eligible.length) * 100) : null,
     days,
@@ -143,10 +148,14 @@ export function buildMonthlyRecords(
   for (let date = monthStart; date <= monthEnd; date = shiftDate(date, 1)) {
     const dayTasks = eligible.filter((task) => task.daily_plans.plan_date === date);
     const dayPracticed = dayTasks.filter((task) => PRACTICED_STATUSES.has(task.status)).length;
+    const pending = dayTasks.filter((task) => task.status === 'CHILD_COMPLETED').length;
+    const partial = dayTasks.filter((task) => task.status === 'PARTIAL').length;
     calendar.push({
       date,
       planned: dayTasks.length,
       practiced: dayPracticed,
+      pending,
+      partial,
       isRest: dayTasks.length === 0,
       rate: dayTasks.length ? Math.round((dayPracticed / dayTasks.length) * 100) : null,
       status:
@@ -154,9 +163,13 @@ export function buildMonthlyRecords(
           ? 'none'
           : dayPracticed === dayTasks.length
             ? 'complete'
-            : dayPracticed > 0
-              ? 'partial'
-              : 'missed',
+            : pending === dayTasks.length
+              ? 'pending'
+              : partial === dayTasks.length
+                ? 'partial'
+                : dayPracticed + pending + partial > 0
+                  ? 'mixed'
+                  : 'missed',
     });
   }
   const weeks = Array.from({ length: 5 }, (_, index) => {
@@ -167,6 +180,8 @@ export function buildMonthlyRecords(
       label: `${index + 1}주차`,
       planned,
       practiced: completed,
+      pending: days.reduce((sum, day) => sum + day.pending, 0),
+      partial: days.reduce((sum, day) => sum + day.partial, 0),
       rate: planned ? Math.round((completed / planned) * 100) : null,
     };
   });
@@ -175,6 +190,8 @@ export function buildMonthlyRecords(
     monthEnd,
     plannedCount: eligible.length,
     practicedCount: practiced.length,
+    pendingCount: eligible.filter((task) => task.status === 'CHILD_COMPLETED').length,
+    partialCount: eligible.filter((task) => task.status === 'PARTIAL').length,
     plannedMinutes: eligible.reduce((sum, task) => sum + task.planned_minutes, 0),
     rate: eligible.length ? Math.round((practiced.length / eligible.length) * 100) : null,
     weeks,
@@ -189,7 +206,7 @@ export function historyStatus(
   if (task.excluded_for_today) return { label: '계획에서 제외', tone: 'neutral' };
   if (superseded.has(task.id)) return { label: '다른 날로 이동', tone: 'neutral' };
   if (task.status === 'PARENT_CONFIRMED') return { label: '완료', tone: 'success' };
-  if (task.status === 'PARTIAL') return { label: '일부 실천', tone: 'unfinished' };
+  if (task.status === 'PARTIAL') return { label: '부분 완료', tone: 'unfinished' };
   if (task.status === 'CHILD_COMPLETED') return { label: '확인 대기', tone: 'pending' };
   if (task.status === 'RETRY') return { label: '다시 하기', tone: 'unfinished' };
   if (task.status === 'SKIPPED') return { label: '건너뜀', tone: 'neutral' };

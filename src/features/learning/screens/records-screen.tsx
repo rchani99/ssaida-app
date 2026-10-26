@@ -168,13 +168,16 @@ export function RecordsScreen() {
         <>
           <View style={styles.section}>
             <Text accessibilityRole="header" style={styles.sectionTitle}>
-              이번 주 실천
+              이번 주 학습
             </Text>
             <View style={styles.statsRow}>
               <ParentCard style={styles.practiceCard}>
                 <ProgressRing rate={summary.rate} />
                 <Text style={styles.heroCount}>
                   {summary.plannedCount}개 중 {summary.practicedCount}개 완료
+                </Text>
+                <Text style={styles.unavailable}>
+                  확인 대기 {summary.pendingCount}개 · 부분 완료 {summary.partialCount}개
                 </Text>
               </ParentCard>
               <ParentCard style={styles.timeCard}>
@@ -214,9 +217,19 @@ export function RecordsScreen() {
                   />
                 ))}
               </View>
+              <View style={styles.dayDetails}>
+                {summary.days.map((day, index) =>
+                  day.pending > 0 || day.partial > 0 ? (
+                    <Text key={day.date} style={styles.unavailable}>
+                      {DAY_LABELS[index]}요일 · 확인 대기 {day.pending}개 · 부분 완료 {day.partial}
+                      개
+                    </Text>
+                  ) : null,
+                )}
+              </View>
               <View style={styles.legend}>
-                <Legend color={t.colors.primary} label="실천" />
-                <Legend color={t.colors.warningBackground} label="미실천" />
+                <Legend color={t.colors.primary} label="완료" />
+                <Legend color={t.colors.warningBackground} label="미완료" />
                 <Legend color={t.colors.divider} label="계획 없음" />
               </View>
             </ParentCard>
@@ -275,13 +288,16 @@ function MonthlyRecords({
     <>
       <View style={styles.section}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>
-          이번 달 실천
+          이번 달 학습
         </Text>
         <View style={styles.statsRow}>
           <ParentCard style={styles.practiceCard}>
             <ProgressRing rate={monthly.rate} scope="이번 달" />
             <Text style={styles.heroCount}>
               {monthly.plannedCount}개 중 {monthly.practicedCount}개 완료
+            </Text>
+            <Text style={styles.unavailable}>
+              확인 대기 {monthly.pendingCount}개 · 부분 완료 {monthly.partialCount}개
             </Text>
           </ParentCard>
           <ParentCard style={styles.timeCard}>
@@ -304,13 +320,13 @@ function MonthlyRecords({
 
       <View style={styles.section}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>
-          주차별 실천률
+          주차별 완료율
         </Text>
         <ParentCard style={styles.monthlyChartCard}>
           {monthly.weeks.map((week) => (
             <View
               accessible
-              accessibilityLabel={`${week.label} ${week.rate === null ? '계획 없음' : `실천률 ${week.rate}%`}`}
+              accessibilityLabel={`${week.label} ${week.rate === null ? '계획 없음' : `완료율 ${week.rate}%`}`}
               key={week.label}
               style={styles.weekRow}
             >
@@ -348,8 +364,10 @@ function MonthlyRecords({
           </View>
           <View style={styles.legend}>
             <Legend color={t.colors.primary} label="완료" />
-            <Legend color={t.colors.warning} label="일부 실천" />
-            <Legend color={t.colors.warningBackground} label="미실천" />
+            <Legend color={t.colors.warning} label="부분 완료" />
+            <Legend color={t.colors.textSecondary} label="확인 대기" />
+            <Legend color={t.colors.border} label="여러 상태" />
+            <Legend color={t.colors.warningBackground} label="미완료" />
             <Legend color={t.colors.divider} label="계획 없음" />
           </View>
         </ParentCard>
@@ -371,14 +389,31 @@ function CalendarDay({ day }: { day: MonthlyCalendarDay }) {
   const colors = {
     complete: { background: t.colors.primary, text: t.colors.card },
     partial: { background: t.colors.warning, text: t.colors.card },
+    pending: { background: t.colors.textSecondary, text: t.colors.card },
+    mixed: { background: t.colors.border, text: t.colors.textPrimary },
     missed: { background: t.colors.warningBackground, text: t.colors.textPrimary },
     none: { background: t.colors.dividerSoft, text: t.colors.textSecondary },
   }[day.status];
-  const labels = { complete: '완료', partial: '일부 실천', missed: '미실천', none: '계획 없음' };
+  const markers = {
+    complete: '완료',
+    pending: '대기',
+    partial: '부분',
+    mixed: '혼합',
+    missed: '미완료',
+    none: '',
+  };
+  const labels = {
+    complete: '완료',
+    pending: '확인 대기',
+    partial: '부분 완료',
+    mixed: '여러 상태',
+    missed: '미완료',
+    none: '계획 없음',
+  };
   return (
     <View
       accessible
-      accessibilityLabel={`${Number(day.date.slice(8))}일 ${labels[day.status]}`}
+      accessibilityLabel={`${Number(day.date.slice(8))}일 ${labels[day.status]}, 완료 ${day.practiced}개, 확인 대기 ${day.pending}개, 부분 완료 ${day.partial}개`}
       style={styles.calendarCell}
     >
       <View style={[styles.calendarDate, { backgroundColor: colors.background }]}>
@@ -386,6 +421,7 @@ function CalendarDay({ day }: { day: MonthlyCalendarDay }) {
           {Number(day.date.slice(8))}
         </Text>
       </View>
+      {day.status !== 'none' && <Text style={styles.calendarMarker}>{markers[day.status]}</Text>}
     </View>
   );
 }
@@ -432,7 +468,7 @@ function ProgressRing({ rate, scope = '이번 주' }: { rate: number | null; sco
     <View
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={rate === null ? `${scope} 계획 없음` : `${scope} 실천률 ${rate}%`}
+      accessibilityLabel={rate === null ? `${scope} 계획 없음` : `${scope} 완료율 ${rate}%`}
       accessibilityValue={rate === null ? undefined : { min: 0, max: 100, now: rate }}
       style={styles.ring}
     >
@@ -465,7 +501,7 @@ function ProgressRing({ rate, scope = '이번 주' }: { rate: number | null; sco
         <Text style={rate === null ? styles.noPlan : styles.rate}>
           {rate === null ? '계획 없음' : `${rate}%`}
         </Text>
-        {rate !== null && <Text style={styles.rateCaption}>실천률</Text>}
+        {rate !== null && <Text style={styles.rateCaption}>완료율</Text>}
       </View>
     </View>
   );
@@ -498,7 +534,7 @@ function DayBar({ day, label, future }: { day: RecordsDay; label: string; future
   return (
     <View
       accessible
-      accessibilityLabel={`${label}요일 ${future ? '예정' : day.planned === 0 ? '계획 없음' : `${day.planned}개 중 ${day.practiced}개 실천`}`}
+      accessibilityLabel={`${label}요일 ${future ? '예정' : day.planned === 0 ? '계획 없음' : `${day.planned}개 중 ${day.practiced}개 완료, 확인 대기 ${day.pending}개, 부분 완료 ${day.partial}개`}`}
       style={styles.day}
     >
       <Text style={styles.dayValue}>{status}</Text>
@@ -632,7 +668,7 @@ const styles = StyleSheet.create({
   },
   unavailable: { ...t.typography.caption, color: t.colors.textSecondary },
   chart: {
-    height: 158,
+    minHeight: 158,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -640,11 +676,11 @@ const styles = StyleSheet.create({
   },
   day: {
     flex: 1,
-    height: '100%',
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: t.spacing[4],
   },
+  dayDetails: { gap: t.spacing[4], marginVertical: t.spacing[12] },
   dayValue: { fontSize: 10, lineHeight: 14, color: t.colors.textSecondary },
   barTrack: {
     width: '70%',
@@ -691,7 +727,8 @@ const styles = StyleSheet.create({
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calendarCell: {
     width: `${100 / 7}%`,
-    aspectRatio: 1,
+    minHeight: 56,
+    paddingVertical: t.spacing[4],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -702,6 +739,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: t.radius.pill,
   },
+  calendarMarker: { ...t.typography.caption, color: t.colors.textSecondary, textAlign: 'center' },
   calendarDateText: { ...t.typography.caption, fontWeight: '700' },
   monthHistoryButton: {
     minHeight: t.icon.touchMin,

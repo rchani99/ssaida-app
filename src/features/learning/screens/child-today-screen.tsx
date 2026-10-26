@@ -95,7 +95,7 @@ export function ChildTodayScreen() {
   const allDone =
     groups.todayCount > 0 &&
     groups.remaining === 0 &&
-    groups.completed === groups.todayCount &&
+    groups.completed + groups.pending + groups.partial === groups.todayCount &&
     !groups.today.some((task) => task.quantity_conflict) &&
     ![childQuery, planQuery, tasksQuery, continuingQuery].some((query) => query.isFetching);
   const handleOpen = (task: DailyTask) => {
@@ -129,6 +129,8 @@ export function ChildTodayScreen() {
         {allDone && (
           <DailyStudyCelebration
             key={`${childId}:${today}`}
+            pending={groups.pending}
+            partial={groups.partial}
             onCollection={() => router.push('/child/garden')}
           />
         )}
@@ -141,6 +143,9 @@ export function ChildTodayScreen() {
             </Text>
           </View>
           <Text style={styles.summaryCaption}>목표 {planQuery.data.target_minutes_snapshot}분</Text>
+          <Text style={styles.summaryCaption}>
+            완료 {groups.completed}개 · 확인 대기 {groups.pending}개 · 부분 완료 {groups.partial}개
+          </Text>
         </View>
         <View
           style={[
@@ -235,20 +240,22 @@ function TaskCard({
   error: boolean;
 }) {
   const isWaiting = task.status === 'CHILD_COMPLETED';
-  const isDone = ['PARENT_CONFIRMED', 'PARTIAL'].includes(task.status);
+  const isDone = task.status === 'PARENT_CONFIRMED';
   const canOpen = canOpenTask(task);
   const Icon = task.item_type === 'WORKBOOK' ? BookOpen : Clock3;
   const status = task.quantity_conflict
     ? '진도가 바뀌었어요. 부모님과 다시 확인해 주세요.'
     : isWaiting
-      ? '부모님 확인을 기다리고 있어요'
+      ? '확인 대기 · 부모님 확인을 기다리고 있어요'
       : isDone
-        ? '오늘 공부를 마쳤어요'
-        : task.status === 'IN_PROGRESS'
-          ? '공부하는 중이에요'
-          : task.status === 'RETRY'
-            ? '다시 해볼까요?'
-            : '시작할 준비가 됐어요';
+        ? '완료 · 부모님이 확인했어요'
+        : task.status === 'PARTIAL'
+          ? '부분 완료 · 일부 공부를 마쳤어요'
+          : task.status === 'IN_PROGRESS'
+            ? '공부하는 중이에요'
+            : task.status === 'RETRY'
+              ? '다시 해볼까요?'
+              : '시작할 준비가 됐어요';
   return (
     <Pressable
       accessibilityRole={canOpen ? 'button' : undefined}
